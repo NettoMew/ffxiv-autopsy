@@ -125,6 +125,7 @@ async function score(
   const full = await api.report(code);
   const report = focusOnSingleEncounter(full, options.fightId);
   const encounterId = report.fights[0]?.encounterId ?? 0;
+  const zoneId = await api.zoneForEncounter(encounterId, report.zoneId);
 
   const phases = neededPhases(report, { fightId: options.fightId, phaseIndex: options.phaseIndex });
   if (phases.length === 0) {
@@ -134,7 +135,7 @@ async function score(
   note(`比对官方数据：版本分区自动识别，最近 ${WINDOW_LABELS[options.window]}，共 ${phases.length} 个 P`);
   const baseline = await ensureBaseline(
     statistics,
-    { zoneId: report.zoneId, encounterId, metric: options.metric, window: options.window },
+    { zoneId, encounterId, metric: options.metric, window: options.window },
     phases,
     (phase) => note(`  取 P${phase} 的官方数据`),
   );
@@ -231,16 +232,21 @@ function focusOnSingleEncounter(report: Report, fightId: number | undefined): Re
   if (fightId !== undefined) {
     const fight = report.fights.find((item) => item.id === fightId);
     if (!fight) fail(`报告里没有第 ${fightId} 把。`);
-    return { ...report, fights: [fight] };
+    return { ...report, zoneName: fight.zoneName || report.zoneName, fights: [fight] };
   }
 
   const counts = new Map<number, number>();
   for (const fight of report.fights) counts.set(fight.encounterId, (counts.get(fight.encounterId) ?? 0) + 1);
 
-  const [chosen] = [...counts].sort((a, b) => b[1] - a[1])[0] ?? [0];
-  if (counts.size > 1) note(`报告含 ${counts.size} 个 boss，取记录最多的 ${chosen}`);
+  const [chosen = 0] = [...counts].sort((a, b) => b[1] - a[1])[0] ?? [0];
+  const fights = report.fights.filter((fight) => fight.encounterId === chosen);
 
-  return { ...report, fights: report.fights.filter((fight) => fight.encounterId === chosen) };
+  if (counts.size > 1) {
+    note(`报告含 ${counts.size} 个副本，取把数最多的 ${fights[0]?.zoneName || chosen}（${fights.length} 把）`);
+  }
+
+  // 混着多个副本的报告，整份报告的副本名未必是这个 boss 的，得从筛出来的战斗里取。
+  return { ...report, zoneName: fights[0]?.zoneName || report.zoneName, fights };
 }
 
 function parseOptions(argv: readonly string[]): Options {

@@ -36,6 +36,11 @@ interface RawFightsResponse {
   readonly start?: number;
 }
 
+interface RawZone {
+  readonly id: number;
+  readonly encounters?: readonly { readonly id: number }[];
+}
+
 export interface TableEntry {
   readonly name: string;
   readonly type: JobKey;
@@ -87,6 +92,7 @@ export class FfLogsApi {
         id: fight.id,
         encounterId: fight.boss,
         name: fight.name,
+        zoneName: fight.zoneName ?? "",
         start: fight.start_time,
         end: fight.end_time,
         combatTime: fight.combatTime ?? fight.end_time - fight.start_time,
@@ -105,6 +111,19 @@ export class FfLogsApi {
       start: raw.start ?? 0,
       fights,
     };
+  }
+
+  /**
+   * 这个 boss 属于哪个统计分区。
+   *
+   * 不能拿报告自报的 zone 去问统计页：一份日志里混了好几个副本时，FF Logs 只会
+   * 给整份报告贴一个 zone，拿它去查别的副本的 boss 只会 404。分区表里每个 zone
+   * 都列着自己的 encounters，从 boss 反查才是对的。
+   */
+  async zoneForEncounter(encounterId: number, fallback: number): Promise<number> {
+    const zones = await this.#get<readonly RawZone[]>("/v1/zones", {});
+    const owner = zones.find((zone) => (zone.encounters ?? []).some((boss) => boss.id === encounterId));
+    return owner?.id ?? fallback;
   }
 
   async table(view: string, code: string, start: number, end: number): Promise<TableResponse> {

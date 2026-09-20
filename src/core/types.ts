@@ -104,6 +104,8 @@ export interface Fight {
   readonly id: number;
   readonly encounterId: number;
   readonly name: string;
+  /** 副本的中文名，逐把都带着，便于报告横跨多个副本时按 boss 取正确的那个。 */
+  readonly zoneName: string;
   readonly start: number;
   readonly end: number;
   readonly combatTime: number;

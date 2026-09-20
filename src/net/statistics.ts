@@ -125,7 +125,13 @@ export class StatisticsSource {
       },
     });
 
-    if (response.status !== 200) fail(`统计页返回 ${response.status}。`, `请求：${url}`);
+    if (response.status === 404) {
+      fail(
+        `统计页没有副本 ${request.zoneId} 的数据（HTTP 404）。`,
+        `boss ${request.encounterId} 可能不属于这个副本。${hint(response.body)}`,
+      );
+    }
+    if (response.status !== 200) fail(`统计页返回 ${response.status}。`, `请求：${url}${hint(response.body)}`);
     if (response.body.includes("Use the API")) {
       fail("统计页拒绝了本次请求。", "站方会对来路不明的请求返回提示。请稍后重试；若持续失败，说明页面策略已变。");
     }
@@ -178,6 +184,12 @@ export class StatisticsSource {
   #pageUrl(zoneId: number, encounterId: number, phase: number): string {
     return `https://${this.#config.host}/zone/statistics/${zoneId}?boss=${encounterId}&phase=${phase}`;
   }
+}
+
+/** 出错时把远端那句话原样带出来，比只报一个状态码有用得多。 */
+function hint(body: string): string {
+  const text = body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return text && text.length <= 160 ? `\n远端说：${text}` : "";
 }
 
 /** 各分位来自不同请求，极少数情况下会有毫厘倒挂，这里强制单调。 */
