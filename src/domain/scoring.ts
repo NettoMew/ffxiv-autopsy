@@ -31,6 +31,7 @@ export interface PhaseScore {
   readonly averageDurationMs: number;
   readonly value: number;
   readonly best: number;
+  readonly worst: number;
   readonly curve: JobCurve | null;
   /** 官方样本是否足够支撑一个分数。 */
   readonly reliable: boolean;
@@ -164,6 +165,7 @@ export function buildScoreboard(
         averageDurationMs: mean(bucket.map((sample) => sample.phase.durationMs)),
         value: representative,
         best: values[values.length - 1] ?? 0,
+        worst: values[0] ?? 0,
         curve,
         reliable,
         percentile: reliable && curve ? percentileOf(curve, representative) : null,

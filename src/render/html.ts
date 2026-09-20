@@ -1,5 +1,6 @@
 import { WINDOW_LABELS } from "../core/types.ts";
 import { quantile } from "../domain/baseline.ts";
+import { buildInsights, type Severity } from "../domain/insights.ts";
 import type { PhaseScore, Scoreboard } from "../domain/scoring.ts";
 import { bandOf, dateOf, duration, num, signedPercent } from "./format.ts";
 
@@ -59,6 +60,8 @@ ${board.players
     <p class="note">计分阶段 = 计入总分的阶段 / 有数据的阶段。被团灭截断或官方样本不足的阶段不计分。</p>
   </section>
 
+${insightSection(board)}
+
 ${phaseIndices.map((index) => phaseSection(board, index)).join("\n")}
 
 ${truncatedSection(board)}
@@ -71,6 +74,30 @@ ${truncatedSection(board)}
 </body>
 </html>
 `;
+}
+
+const SEVERITY: Readonly<Record<Severity, { label: string; color: string }>> = {
+  critical: { label: "严重", color: "#e2706a" },
+  warning: { label: "注意", color: "#e8b14a" },
+  note: { label: "观察", color: "#8b94a5" },
+  good: { label: "亮点", color: "#5fd07a" },
+};
+
+function insightSection(board: Scoreboard): string {
+  const insights = buildInsights(board);
+  if (insights.length === 0) return "";
+
+  return `  <section>
+    <h2>点评</h2>
+    <ul class="insights">
+${insights
+  .map((insight) => {
+    const tone = SEVERITY[insight.severity];
+    return `      <li><span class="tag" style="color:${tone.color};border-color:${tone.color}">${tone.label}</span><span class="who">${escape(insight.subject || "全队")}</span>${escape(insight.text)}</li>`;
+  })
+  .join("\n")}
+    </ul>
+  </section>`;
 }
 
 function phaseSection(board: Scoreboard, index: number): string {
@@ -195,6 +222,11 @@ tbody tr:hover{background:var(--panel)}
 .up{color:#5fd07a}
 .down{color:#e2706a}
 .note{margin:10px 0 0;color:var(--muted);font-size:12px}
+.insights{list-style:none;margin:12px 0 0;padding:0}
+.insights li{padding:9px 0;border-bottom:1px solid var(--line);line-height:1.7}
+.insights li:last-child{border-bottom:0}
+.tag{display:inline-block;min-width:34px;margin-right:10px;padding:1px 6px;border:1px solid;border-radius:3px;font-size:11px;text-align:center;vertical-align:1px}
+.who{display:inline-block;min-width:88px;margin-right:10px;font-weight:600}
 .track-head{width:200px}
 .track{position:relative;display:block;width:180px;height:10px;border-radius:5px;background:#232a35}
 .track .tick{position:absolute;top:1px;width:1px;height:8px;background:#3c4554}

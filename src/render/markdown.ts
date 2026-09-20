@@ -1,7 +1,15 @@
 import { WINDOW_LABELS } from "../core/types.ts";
 import { quantile } from "../domain/baseline.ts";
+import { buildInsights, type Severity } from "../domain/insights.ts";
 import type { Scoreboard } from "../domain/scoring.ts";
 import { dateOf, duration, num, signedPercent } from "./format.ts";
+
+const MARKS: Readonly<Record<Severity, string>> = {
+  critical: "严重",
+  warning: "注意",
+  note: "观察",
+  good: "亮点",
+};
 
 export function renderMarkdown(board: Scoreboard, host: string): string {
   const lines: string[] = [];
@@ -38,6 +46,14 @@ export function renderMarkdown(board: Scoreboard, host: string): string {
   }
 
   lines.push("", "计分阶段 = 计入总分的阶段 / 有数据的阶段。被团灭截断或官方样本不足的阶段不计分。");
+
+  const insights = buildInsights(board);
+  if (insights.length > 0) {
+    lines.push("", "## 点评", "", "| 程度 | 对象 | 结论 |", "| --- | --- | --- |");
+    for (const insight of insights) {
+      lines.push(row([MARKS[insight.severity], insight.subject || "全队", insight.text]));
+    }
+  }
 
   const phaseIndices = [
     ...new Set(board.players.flatMap((player) => player.phases.map((phase) => phase.phaseIndex))),

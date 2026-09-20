@@ -1,8 +1,16 @@
 import { WINDOW_LABELS } from "../core/types.ts";
-import { heading, style, table } from "../core/terminal.ts";
+import { displayWidth, heading, padEnd, style, table } from "../core/terminal.ts";
 import { quantile } from "../domain/baseline.ts";
+import { buildInsights, type Severity } from "../domain/insights.ts";
 import type { Scoreboard } from "../domain/scoring.ts";
 import { dateOf, duration, num, paintPercentile, paintSigned } from "./format.ts";
+
+const LABELS: Readonly<Record<Severity, string>> = {
+  critical: style.red("严重"),
+  warning: style.yellow("注意"),
+  note: style.gray("观察"),
+  good: style.green("亮点"),
+};
 
 export function renderConsole(board: Scoreboard, host: string): string {
   const lines: string[] = [];
@@ -54,6 +62,16 @@ export function renderConsole(board: Scoreboard, host: string): string {
     ),
     style.gray("计分阶段 = 计入总分的阶段 / 有数据的阶段。被团灭截断或官方样本不足的阶段不计分。"),
   );
+
+  const insights = buildInsights(board);
+  if (insights.length > 0) {
+    lines.push(heading("点评"));
+    const width = Math.max(...insights.map((insight) => displayWidth(insight.subject || "全队")));
+
+    for (const insight of insights) {
+      lines.push(`${LABELS[insight.severity]} ${padEnd(insight.subject || style.bold("全队"), width)}  ${insight.text}`);
+    }
+  }
 
   const phaseIndices = [...new Set(board.players.flatMap((player) => player.phases.map((phase) => phase.phaseIndex)))].sort(
     (a, b) => a - b,
