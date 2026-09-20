@@ -160,7 +160,7 @@ export function buildScoreboard(
 
       scored.push({
         phaseIndex,
-        phaseName: first?.phase.name ?? `阶段 ${phaseIndex}`,
+        phaseName: first?.phase.name ?? `P${phaseIndex}`,
         pulls: bucket.length,
         averageDurationMs: mean(bucket.map((sample) => sample.phase.durationMs)),
         value: representative,

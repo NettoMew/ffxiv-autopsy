@@ -21,7 +21,7 @@ export interface HtmlOptions {
 }
 
 export function renderHtml(board: Scoreboard, host: string, options: HtmlOptions = {}): string {
-  const title = `${board.report.zoneName || board.report.title} 阶段评分`;
+  const title = `${board.report.zoneName || board.report.title} 逐 P 评分`;
   const phases = phaseColumns(board);
   const open = options.forImage === true;
 
@@ -82,10 +82,10 @@ function header(board: Scoreboard, host: string): string {
     <p class="subtitle">${escape(board.report.title)} · ${escape(dateOf(board.report.start))} · 记录者 ${escape(board.report.owner)}</p>
     <p class="subtitle">
       <a href="https://${escape(host)}/reports/${escape(board.report.code)}">${escape(board.report.code)}</a>
-      · ${escape(board.metricLabel)}
-      · 官方 ${escape(WINDOW_LABELS[board.baseline.window])}窗口
+      · 按 ${escape(board.metricLabel)} 算
+      · 比官方最近 ${escape(WINDOW_LABELS[board.baseline.window])}
       · 分区 ${board.baseline.partition}
-      · 多次 pull 取${board.aggregate === "best" ? "最佳" : "中位"}值
+      · 一个 P 打多把时取${board.aggregate === "best" ? "最好的一把" : "中位数"}
     </p>
   </header>`;
 }
@@ -98,17 +98,17 @@ function overview(board: Scoreboard): string {
   const tied = worst ? wipes.filter((entry) => entry.count === worst.count) : [];
 
   const cards: { label: string; value: string; hint: string }[] = [
-    { label: "有效 pull", value: String(board.report.fights.length), hint: "排除杂兵段落后" },
-    { label: "参与玩家", value: String(board.players.length), hint: "至少有一个计分阶段" },
+    { label: "开荒把数", value: String(board.report.fights.length), hint: "已排除杂兵段落" },
+    { label: "参战人数", value: String(board.players.length), hint: "至少有一个 P 算了分" },
     {
-      label: "全队平均分位",
+      label: "全队平均分",
       value: rated.length > 0 ? average.toFixed(1) : "—",
-      hint: rated.length > 0 ? `${rated.length} 人的总评均值` : "无可计分数据",
+      hint: rated.length > 0 ? `${rated.length} 人总评的平均` : "无可计分数据",
     },
     {
-      label: "最常团灭",
+      label: "最常倒在",
       value: worst ? tied.map((entry) => entry.name.split(":")[0]?.trim() ?? entry.name).join(" / ") : "—",
-      hint: worst ? `各 ${worst.count} 把` : "没有被截断的阶段",
+      hint: worst ? `各 ${worst.count} 把` : "没有被打断的 P",
     },
   ];
 
@@ -149,17 +149,17 @@ ${cells}
     .join("\n");
 
   return `  <section>
-    <h2>分位矩阵</h2>
-    <p class="subtitle">横看是某人哪一段塌了，竖看是全队在哪一段吃力。悬停格子可以看到原始数值。</p>
+    <h2>各 P 百分位</h2>
+    <p class="subtitle">横着看是某个人在哪个 P 掉了，竖着看是全队卡在哪个 P。鼠标停在格子上能看到原始数值。</p>
     <div class="scroll">
       <table class="matrix">
-        <thead><tr><th>玩家</th><th>职业</th>${head}<th class="c">总评</th><th class="c">计分</th></tr></thead>
+        <thead><tr><th>玩家</th><th>职业</th>${head}<th class="c">总评</th><th class="c">算分 P</th></tr></thead>
         <tbody>
 ${body}
         </tbody>
       </table>
     </div>
-    <p class="note">计分列为「计入总分的阶段 / 有数据的阶段」。被团灭截断或官方样本不足的阶段不计分。${dropped.length > 0 ? `${escape(dropped.map((phase) => phase.full).join("、"))} 全员样本不足，未列入矩阵，明细仍可展开。` : ""}</p>
+    <p class="note">算分 P 是「算进总分的 P / 有数据的 P」。被团灭打断、或者官方样本太少的 P 不算分。${dropped.length > 0 ? `${escape(dropped.map((phase) => phase.full).join("、"))} 全队都因样本太少没能算分，没放进表里，明细仍可展开。` : ""}</p>
 ${legend()}
   </section>`;
 }
@@ -169,7 +169,7 @@ function cell(player: PlayerScore, column: PhaseColumn): string {
   if (!phase) return `          <td class="c empty">·</td>`;
 
   if (phase.percentile === null) {
-    const why = phase.curve ? `官方样本仅 ${phase.curve.sampleSize} 条，不足以评分` : "没有官方基准";
+    const why = phase.curve ? `官方样本只有 ${phase.curve.sampleSize} 条，不够算分` : "没有官方数据可比";
     return `          <td class="c empty" title="${escape(why)}">样本不足</td>`;
   }
 
@@ -179,7 +179,7 @@ function cell(player: PlayerScore, column: PhaseColumn): string {
     `${num(phase.value)}（${phase.pulls} 把取${phase.pulls > 1 ? "中位" : "单把"}）`,
     phase.curve ? `官方中位 ${num(quantile(phase.curve, 50))}` : "",
     `相对中位 ${signedPercent(phase.vsMedian)}`,
-    phase.curve ? `官方样本 ${phase.curve.sampleSize}` : "",
+    phase.curve ? `样本数 ${phase.curve.sampleSize}` : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -206,7 +206,7 @@ function legend(): string {
       const hex = bandOf(stop.from).hex;
       return `<span class="chip" style="background:${hex}22;border-color:${hex}55;color:${hex}">${stop.from}–${stop.to}</span>`;
     })
-    .join("")}<span class="legend-note">配色沿用 FF Logs 的分位分段</span></p>`;
+    .join("")}<span class="legend-note">配色与 FF Logs 的百分位一致</span></p>`;
 }
 
 const SEVERITY: Readonly<Record<Severity, { label: string; color: string }>> = {
@@ -232,7 +232,7 @@ function insightSection(board: Scoreboard): string {
 
   return `  <section>
     <h2>点评</h2>
-    <p class="subtitle">${escape(summary)}。每条结论都带着支撑它的那个数，可以回矩阵核对。</p>
+    <p class="subtitle">${escape(summary)}。每条结论都带着支撑它的那个数，可以回上面的表里核对。</p>
     <ul class="insights">
 ${insights
   .map((insight) => {
@@ -254,12 +254,12 @@ function phaseSection(board: Scoreboard, column: PhaseColumn, open: boolean): st
   if (!sample) return "";
 
   const caption = `${escape(column.full)}`;
-  const meta = `平均 ${escape(duration(sample.averageDurationMs))} · ${sample.pulls} 次记录`;
+  const meta = `平均 ${escape(duration(sample.averageDurationMs))} · 打了 ${sample.pulls} 把`;
 
   return `  ${block(open, caption, meta)}
     <div class="scroll">
       <table>
-        <thead><tr><th>玩家</th><th>职业</th><th class="n">${escape(board.metricLabel)}</th><th class="n">最佳</th><th class="n">最差</th><th class="n">官方中位</th><th class="n">相对中位</th><th class="n">分位</th><th class="n">线性</th><th class="n">官方样本</th><th class="track-head">在官方分布中的位置</th></tr></thead>
+        <thead><tr><th>玩家</th><th>职业</th><th class="n">${escape(board.metricLabel)}</th><th class="n">最好</th><th class="n">最差</th><th class="n">官方中位</th><th class="n">比中位</th><th class="n">百分位</th><th class="n">区间分</th><th class="n">样本数</th><th class="track-head">在官方分布里的位置</th></tr></thead>
         <tbody>
 ${rows
   .map(({ player, phase }) => {
@@ -288,9 +288,9 @@ ${rows
 function truncatedSection(board: Scoreboard, open: boolean): string {
   if (board.truncated.length === 0) return "";
 
-  return `  ${block(open, "未计分的阶段", `${board.truncated.length} 处，被团灭截断`)}
+  return `  ${block(open, "没算分的 P", `${board.truncated.length} 处被团灭打断`)}
     <table>
-      <thead><tr><th class="n">pull</th><th>阶段</th><th class="n">时长</th></tr></thead>
+      <thead><tr><th class="n">第几把</th><th>P</th><th class="n">撑了多久</th></tr></thead>
       <tbody>
 ${board.truncated
   .map(
@@ -323,9 +323,9 @@ function close(open: boolean): string {
 
 function footer(open: boolean): string {
   return `  <footer>
-    <p>分位来自 FF Logs 官方副本统计的同阶段同职业分布，九个锚点之间线性插值；线性分为 100 × (实测 − 最低) ÷ (最高 − 最低)。</p>
-    <p>被团灭截断的阶段与官方通关数据不可比，官方样本少于 30 条的阶段分布不成立，两者都不计分。</p>${
-      open ? "\n    <p>每一把的原始数值见同名的明细 CSV。</p>" : ""
+    <p>百分位是拿本人成绩去比 FF Logs 官方统计里同职业、同一个 P 的所有记录，看排在多少名；区间分是在官方最低值到最高值之间的位置。</p>
+    <p>被团灭打断的 P 和官方通关数据没法比，官方样本少于 30 条的 P 也算不出可信的排名，这两种都不算分。</p>${
+      open ? "\n    <p>每一把的原始数值在同名的明细 CSV 里。</p>" : ""
     }
   </footer>`;
 }

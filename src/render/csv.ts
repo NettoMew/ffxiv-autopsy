@@ -6,22 +6,22 @@ export function renderCsv(board: Scoreboard): string {
   const header = [
     "玩家",
     "职业",
-    "阶段编号",
-    "阶段",
-    "记录数",
+    "P 编号",
+    "P",
+    "把数",
     "平均时长秒",
-    `${board.metricLabel}代表值`,
-    `${board.metricLabel}最佳`,
+    `${board.metricLabel}计分值`,
+    `${board.metricLabel}最好`,
     "官方最低",
     "官方p25",
     "官方中位",
     "官方p75",
     "官方p95",
     "官方最高",
-    "官方样本",
-    "相对中位",
-    "分位",
-    "线性",
+    "样本数",
+    "比中位",
+    "百分位",
+    "区间分",
   ];
 
   const rows = board.players.flatMap((player) =>
@@ -52,7 +52,7 @@ export function renderCsv(board: Scoreboard): string {
 
 /** 明细表：每一次 pull 的每一个阶段一行，保留最原始的实测值。 */
 export function renderSamplesCsv(board: Scoreboard): string {
-  const header = ["pull", "阶段编号", "阶段", "时长秒", "玩家", "职业", board.metricLabel];
+  const header = ["第几把", "P 编号", "P", "时长秒", "玩家", "职业", board.metricLabel];
   const rows = board.samples.map((sample: Sample) => [
     sample.fightId,
     sample.phase.index,

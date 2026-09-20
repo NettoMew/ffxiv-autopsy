@@ -32,7 +32,7 @@ export function buildPhaseWindows(
     const isLast = index === phases.length - 1;
     windows.push({
       index: phase.id,
-      name: names[phase.id - 1] ?? `阶段 ${phase.id}`,
+      name: names[phase.id - 1] ?? `P${phase.id}`,
       start: phase.startTime,
       end,
       durationMs,

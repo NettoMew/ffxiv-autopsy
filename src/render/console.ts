@@ -27,10 +27,10 @@ export function renderConsole(board: Scoreboard, host: string): string {
     ),
     style.gray(
       [
-        `口径 ${board.metricLabel}`,
-        `官方窗口 ${WINDOW_LABELS[board.baseline.window]}`,
+        `按 ${board.metricLabel} 算`,
+        `比官方最近 ${WINDOW_LABELS[board.baseline.window]}`,
         `分区 ${board.baseline.partition}`,
-        `多次 pull 取${board.aggregate === "best" ? "最佳" : "中位"}`,
+        `一个 P 打多把时取${board.aggregate === "best" ? "最好的一把" : "中位数"}`,
       ].join("   "),
     ),
   );
@@ -41,11 +41,11 @@ export function renderConsole(board: Scoreboard, host: string): string {
       [
         { header: "玩家" },
         { header: "职业" },
-        { header: "分位", align: "right" },
-        { header: "线性", align: "right" },
-        { header: "计分阶段", align: "right" },
-        { header: "最强" },
-        { header: "最弱" },
+        { header: "百分位", align: "right" },
+        { header: "区间分", align: "right" },
+        { header: "算分 P", align: "right" },
+        { header: "最好的 P" },
+        { header: "最差的 P" },
       ],
       board.players.map((player) => {
         const rated = player.phases.filter((phase) => phase.percentile !== null);
@@ -60,7 +60,7 @@ export function renderConsole(board: Scoreboard, host: string): string {
         ];
       }),
     ),
-    style.gray("计分阶段 = 计入总分的阶段 / 有数据的阶段。被团灭截断或官方样本不足的阶段不计分。"),
+    style.gray("算分 P = 算进总分的 P / 有数据的 P。被团灭打断、或者官方样本太少的 P 不算分。"),
   );
 
   const insights = buildInsights(board);
@@ -88,7 +88,7 @@ export function renderConsole(board: Scoreboard, host: string): string {
 
     lines.push(
       heading(sample.phaseName),
-      style.gray(`平均时长 ${duration(sample.averageDurationMs)}   ${sample.pulls} 次记录`),
+      style.gray(`平均 ${duration(sample.averageDurationMs)}   打了 ${sample.pulls} 把`),
     );
 
     lines.push(
@@ -97,12 +97,12 @@ export function renderConsole(board: Scoreboard, host: string): string {
           { header: "玩家" },
           { header: "职业" },
           { header: board.metricLabel, align: "right" },
-          { header: "最佳", align: "right" },
+          { header: "最好", align: "right" },
           { header: "官方中位", align: "right" },
-          { header: "相对中位", align: "right" },
-          { header: "分位", align: "right" },
-          { header: "线性", align: "right" },
-          { header: "官方样本", align: "right" },
+          { header: "比中位", align: "right" },
+          { header: "百分位", align: "right" },
+          { header: "区间分", align: "right" },
+          { header: "样本数", align: "right" },
         ],
         rows.map(({ player, phase }) => [
           player.player,
@@ -120,11 +120,11 @@ export function renderConsole(board: Scoreboard, host: string): string {
   }
 
   if (board.truncated.length > 0) {
-    lines.push(heading("未计分的阶段"));
+    lines.push(heading("没算分的 P"));
     lines.push(
-      style.gray("被团灭截断的阶段与官方通关数据不可比，只列出不参与评分。"),
+      style.gray("这些 P 被团灭打断了，和官方通关数据没法比，只列出来，不算分。"),
       table(
-        [{ header: "pull", align: "right" }, { header: "阶段" }, { header: "时长", align: "right" }],
+        [{ header: "第几把", align: "right" }, { header: "P" }, { header: "撑了多久", align: "right" }],
         board.truncated.map((item) => [`第 ${item.fightId} 把`, item.phaseName, duration(item.durationMs)]),
       ),
     );

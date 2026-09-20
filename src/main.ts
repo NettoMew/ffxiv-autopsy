@@ -25,14 +25,14 @@ const USAGE = `
 选项
   --metric <rdps|adps|ndps|cdps|hps>  评分口径，默认 rdps
   --fight <id>                        只评某一把，默认全部
-  --phase <n>                         只评某个阶段，默认全部
-  --aggregate <median|best>           同一阶段多次 pull 的取值方式，默认 median
-  --window <2|6|12>                   官方统计的取样窗口，单位周，默认 12
+  --phase <n>                         只评某个 P，默认全部
+  --aggregate <median|best>           同一个 P 打了多把时怎么取值，默认 median
+  --window <2|6|12>                   比对官方最近多少周的数据，默认 12
   --format <console,html,markdown,csv,image>  输出形式，可用逗号叠加，默认 console
   --out <目录>                        文件输出目录，默认 out
   --width <像素>                      导出图片的宽度，默认 1300
   --scale <倍数>                      导出图片的像素密度，默认 2
-  --phases <n>                        baseline 命令强制抓取的阶段上限
+  --phases <n>                        baseline 命令最多抓到第几个 P
   --refresh                           忽略本地缓存重新抓取
   --no-color                          关闭颜色
 `;
@@ -121,15 +121,15 @@ async function score(
 
   const phases = neededPhases(report, { fightId: options.fightId, phaseIndex: options.phaseIndex });
   if (phases.length === 0) {
-    fail("这份报告里没有任何打完整的阶段可供评分。", "被团灭截断的阶段无法与官方通关数据比较。");
+    fail("这份报告里没有一个 P 是完整打完的，没法评分。", "被团灭打断的 P 和官方通关数据没法比。");
   }
 
-  note(`对齐官方基准：分区自动识别，${WINDOW_LABELS[options.window]}窗口，共 ${phases.length} 个阶段`);
+  note(`比对官方数据：版本分区自动识别，最近 ${WINDOW_LABELS[options.window]}，共 ${phases.length} 个 P`);
   const baseline = await ensureBaseline(
     statistics,
     { zoneId: report.zoneId, encounterId, metric: options.metric, window: options.window },
     phases,
-    (phase) => note(`  抓取阶段 ${phase} 的官方分布`),
+    (phase) => note(`  取 P${phase} 的官方数据`),
   );
 
   const samples = await collect(api, report, {
@@ -191,11 +191,11 @@ async function runBaseline(argv: readonly string[]): Promise<void> {
       statistics,
       { zoneId, encounterId, metric: options.metric, window: options.window },
       wanted,
-      (phase) => note(`  抓取阶段 ${phase}`),
+      (phase) => note(`  取 P${phase}`),
     );
 
     const summary = Object.entries(baseline.phases)
-      .map(([phase, curves]) => `阶段 ${phase}: ${Object.keys(curves).length} 个职业`)
+      .map(([phase, curves]) => `P${phase}: ${Object.keys(curves).length} 个职业`)
       .join("\n  ");
 
     process.stdout.write(`\n基准已写入 ${BASELINE_DIR}\n  ${summary}\n\n`);
@@ -217,7 +217,7 @@ function runCache(argv: readonly string[]): void {
 function focusOnSingleEncounter(report: Report, fightId: number | undefined): Report {
   if (fightId !== undefined) {
     const fight = report.fights.find((item) => item.id === fightId);
-    if (!fight) fail(`报告里没有编号为 ${fightId} 的战斗。`);
+    if (!fight) fail(`报告里没有第 ${fightId} 把。`);
     return { ...report, fights: [fight] };
   }
 
@@ -309,7 +309,7 @@ function progress(done: number, total: number, label: string): void {
     process.stderr.write("\r\u001B[2K");
     return;
   }
-  process.stderr.write(`\r\u001B[2K${style.gray(`拉取阶段数据 ${done}/${total}  ${label}`)}`);
+  process.stderr.write(`\r\u001B[2K${style.gray(`取各 P 数据 ${done}/${total}  ${label}`)}`);
 }
 
 function reportBudget(api: FfLogsApi): void {

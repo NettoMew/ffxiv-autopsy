@@ -19,21 +19,21 @@ export interface Insight {
 }
 
 /**
- * 同一阶段多把之间的相对波动超过这个比例才值得一提。
+ * 同一个 P 的几把之间差得超过这个比例才值得一提。
  *
- * 阈值定得高是有意的：进度期本来就把把不同，差个一两成是常态，
+ * 阈值定得高是有意的：开荒本来就把把不同，差个一两成是常态，
  * 说出来只是噪音。真正值得指出的是差到不可能只由发挥解释的那种。
  */
 const VOLATILE = 0.25;
 
-/** 最强与最弱阶段的分位差超过这么多，说明问题集中在特定阶段。 */
+/** 最好与最薄弱的 P 差出这么多分，说明问题集中在个别 P。 */
 const UNEVEN = 25;
 
 export function buildInsights(board: Scoreboard): Insight[] {
   return [...teamInsights(board), ...board.players.flatMap((player) => playerInsights(player))];
 }
 
-/** 全队层面的结论：某个阶段是不是集体性的短板。 */
+/** 全队层面的结论：某个 P 是不是集体性的短板。 */
 function teamInsights(board: Scoreboard): Insight[] {
   const byPhase = new Map<number, { name: string; scores: PhaseScore[] }>();
 
@@ -58,7 +58,7 @@ function teamInsights(board: Scoreboard): Insight[] {
 
   const insights: Insight[] = [];
 
-  // 没有任何阶段凑齐两人时谈不上「全队最弱」，但团灭点是独立成立的，不能一起丢掉。
+  // 没有任何一个 P 凑齐两人时谈不上「全队最吃力」，但团灭点是独立成立的，不能一起丢掉。
   const weakest = ranked[0];
   const strongest = ranked[ranked.length - 1];
 
@@ -68,10 +68,10 @@ function teamInsights(board: Scoreboard): Insight[] {
       severity: allBelow ? "critical" : "note",
       subject: "",
       text:
-        `${weakest.name} 是全队最弱的阶段，平均分位 ${weakest.average.toFixed(1)}，` +
+        `全队最吃力的是 ${weakest.name}，平均 ${weakest.average.toFixed(1)} 分，` +
         (allBelow
-          ? `而且 ${weakest.total} 人全部低于官方中位。这种一致性更像是打法或循环安排的问题，不是某个人的发挥。`
-          : `${weakest.total} 人中有 ${weakest.belowMedian} 人低于官方中位。`),
+          ? `而且 ${weakest.total} 个人全部低于官方中位。这么整齐更像是打法或者爆发轴的问题，不是某一个人手法的事。`
+          : `${weakest.total} 个人里有 ${weakest.belowMedian} 个低于官方中位。`),
     });
 
     if (strongest && ranked.length >= 2 && strongest.average - weakest.average >= UNEVEN) {
@@ -79,8 +79,8 @@ function teamInsights(board: Scoreboard): Insight[] {
         severity: "note",
         subject: "",
         text:
-          `全队在 ${strongest.name} 平均分位 ${strongest.average.toFixed(1)}，` +
-          `与最弱阶段相差 ${(strongest.average - weakest.average).toFixed(1)} 分位，阶段之间很不均衡。`,
+          `全队在 ${strongest.name} 能打到 ${strongest.average.toFixed(1)} 分，` +
+          `和最吃力那个 P 差了 ${(strongest.average - weakest.average).toFixed(1)} 分，各 P 之间很不平均。`,
       });
     }
   }
@@ -96,15 +96,15 @@ function teamInsights(board: Scoreboard): Insight[] {
       subject: "",
       text:
         tied.length > 1
-          ? `${total} 把里，${where} 各倒了 ${worst.count} 把，是最常团灭的两处。`
-          : `${total} 把里有 ${worst.count} 把倒在 ${where}，是最常团灭的地方。`,
+          ? `${total} 把里 ${where} 各倒了 ${worst.count} 把，是团灭最多的两个 P。`
+          : `${total} 把里有 ${worst.count} 把倒在 ${where}，是团灭最多的地方。`,
     });
   }
 
   return insights;
 }
 
-/** 按团灭次数排序的阶段。团灭点本身就是一条结论。 */
+/** 按团灭次数排序的 P。倒在哪里本身就是一条结论。 */
 export function wipePhases(board: Scoreboard): { name: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const item of board.truncated) counts.set(item.phaseName, (counts.get(item.phaseName) ?? 0) + 1);
@@ -117,7 +117,7 @@ export function wipePhases(board: Scoreboard): { name: string; count: number }[]
 function playerInsights(player: PlayerScore): Insight[] {
   const rated = player.phases.filter((phase) => phase.percentile !== null);
   if (rated.length === 0) {
-    return [{ severity: "note", subject: player.player, text: "没有任何阶段的官方样本足够，无法评分。" }];
+    return [{ severity: "note", subject: player.player, text: "所有 P 的官方样本都太少，算不出分。" }];
   }
 
   const candidates: Insight[] = [];
@@ -132,32 +132,32 @@ function playerInsights(player: PlayerScore): Insight[] {
         severity: "critical",
         subject: player.player,
         text:
-          `最薄弱的是 ${weakest.phaseName}，${round(weakest.value)} 低于官方最低值 ${round(floor)}，` +
-          `同职业同阶段没有任何一条公开记录比这更低。`,
+          `最薄弱的是 ${weakest.phaseName}，${round(weakest.value)} 比官方最低值 ${round(floor)} 还低，` +
+          `同职业在这个 P 没有一条公开记录比这更差。`,
       });
     } else if ((weakest.percentile ?? 100) < 10) {
       candidates.push({
         severity: "critical",
         subject: player.player,
         text:
-          `最薄弱的是 ${weakest.phaseName}，分位 ${weakest.percentile?.toFixed(1)}，` +
-          `落在同职业后 10%，比官方中位低 ${percent(-(weakest.vsMedian ?? 0))}。`,
+          `最薄弱的是 ${weakest.phaseName}，${weakest.percentile?.toFixed(1)} 分，` +
+          `排在同职业最后 10%，比官方中位低 ${percent(-(weakest.vsMedian ?? 0))}。`,
       });
     } else if ((weakest.percentile ?? 100) < 25) {
       candidates.push({
         severity: "warning",
         subject: player.player,
         text:
-          `最薄弱的是 ${weakest.phaseName}，分位 ${weakest.percentile?.toFixed(1)}，` +
-          `落在同职业后 25%，比官方中位低 ${percent(-(weakest.vsMedian ?? 0))}。`,
+          `最薄弱的是 ${weakest.phaseName}，${weakest.percentile?.toFixed(1)} 分，` +
+          `排在同职业最后 25%，比官方中位低 ${percent(-(weakest.vsMedian ?? 0))}。`,
       });
     } else {
       candidates.push({
         severity: "note",
         subject: player.player,
         text:
-          `最薄弱的是 ${weakest.phaseName}，分位 ${weakest.percentile?.toFixed(1)}，` +
-          `相对官方中位 ${signed(weakest.vsMedian ?? 0)}。`,
+          `最薄弱的是 ${weakest.phaseName}，${weakest.percentile?.toFixed(1)} 分，` +
+          `相比官方中位 ${signed(weakest.vsMedian ?? 0)}。`,
       });
     }
   }
@@ -166,15 +166,15 @@ function playerInsights(player: PlayerScore): Insight[] {
   if (strongest && weakest && rated.length >= 2) {
     const gap = (strongest.percentile ?? 0) - (weakest.percentile ?? 0);
     if (gap >= UNEVEN) {
-      // 只有最强阶段确实打得好，才谈得上「短板集中在特定阶段」；
+      // 只有最好的那个 P 确实打得好，才谈得上「短板集中在个别 P」；
       // 否则落差再大也只是全程都不理想，不该给出安慰性的结论。
       const capable = (strongest.percentile ?? 0) >= 60;
       candidates.push({
         severity: "note",
         subject: player.player,
         text:
-          `${strongest.phaseName} 分位 ${strongest.percentile?.toFixed(1)}，与最弱阶段相差 ${gap.toFixed(1)} 分位。` +
-          (capable ? "输出能力本身没问题，短板集中在特定阶段。" : "各阶段之间落差很大。"),
+          `${strongest.phaseName} 能打到 ${strongest.percentile?.toFixed(1)} 分，和最薄弱那个 P 差了 ${gap.toFixed(1)} 分。` +
+          (capable ? "输出本身没问题，短板集中在个别 P。" : "各 P 之间落差很大。"),
       });
     }
   }
@@ -186,9 +186,8 @@ function playerInsights(player: PlayerScore): Insight[] {
       severity: "warning",
       subject: player.player,
       text:
-        `${volatile.phaseName} 的 ${volatile.pulls} 把之间相差 ${percent(swing)}，` +
-        `最好 ${round(volatile.best)}、最差 ${round(volatile.worst)}，有个别失手的 pull。` +
-        `计分取的是中位数，这不会拉低分数。`,
+        `${volatile.phaseName} 打了 ${volatile.pulls} 把，最好 ${round(volatile.best)}、最差 ${round(volatile.worst)}，` +
+        `差了 ${percent(swing)}，中间有几把明显失手。总分取的是中位数，个别翻车不影响分数。`,
     });
   }
 
@@ -196,7 +195,7 @@ function playerInsights(player: PlayerScore): Insight[] {
     candidates.push({
       severity: "good",
       subject: player.player,
-      text: `${strongest.phaseName} 分位 ${strongest.percentile?.toFixed(1)}，这一段打得很好。`,
+      text: `${strongest.phaseName} 打到 ${strongest.percentile?.toFixed(1)} 分，这个 P 打得很好。`,
     });
   }
 

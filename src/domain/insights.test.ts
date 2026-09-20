@@ -79,7 +79,7 @@ test("代表值低于官方最低值时判为严重", () => {
   const first = insights.find((insight) => insight.subject === "甲");
 
   assert.equal(first?.severity, "critical");
-  assert.match(first?.text ?? "", /低于官方最低值/);
+  assert.match(first?.text ?? "", /比官方最低值 1,000 还低/);
 });
 
 test("落在后 10% 判为严重，后 25% 判为注意", () => {
@@ -95,26 +95,26 @@ test("最薄弱那一条在任何情况下都会输出", () => {
   assert.match(textFor("丁", insights), /最薄弱的是 P2/);
 });
 
-test("波动未超过阈值时不提", () => {
+test("几把之间差得不多时不提", () => {
   const quiet = buildInsights(
     board([player("戊", [phase({ phaseName: "P2", percentile: 60, value: 4000, best: 4480, worst: 3520 })])]),
   );
-  assert.doesNotMatch(textFor("戊", quiet), /把之间相差/);
+  assert.doesNotMatch(textFor("戊", quiet), /差了 \d/);
 
   const loud = buildInsights(
     board([player("己", [phase({ phaseName: "P2", percentile: 60, value: 4000, best: 4700, worst: 3400 })])]),
   );
-  assert.match(textFor("己", loud), /把之间相差 32\.5%/);
+  assert.match(textFor("己", loud), /差了 32\.5%/);
 });
 
-test("pull 数不足三把时不谈波动", () => {
+test("不足三把时不谈稳定性", () => {
   const insights = buildInsights(
     board([player("庚", [phase({ phaseName: "P2", percentile: 60, pulls: 2, best: 5000, worst: 2000 })])]),
   );
-  assert.doesNotMatch(textFor("庚", insights), /把之间相差/);
+  assert.doesNotMatch(textFor("庚", insights), /差了 \d/);
 });
 
-test("最强阶段不够好时不说输出能力没问题", () => {
+test("最好的 P 也不行时不说输出没问题", () => {
   const weak = buildInsights(
     board([
       player("辛", [
@@ -123,8 +123,8 @@ test("最强阶段不够好时不说输出能力没问题", () => {
       ]),
     ]),
   );
-  assert.match(textFor("辛", weak), /各阶段之间落差很大/);
-  assert.doesNotMatch(textFor("辛", weak), /输出能力本身没问题/);
+  assert.match(textFor("辛", weak), /各 P 之间落差很大/);
+  assert.doesNotMatch(textFor("辛", weak), /输出本身没问题/);
 
   const strong = buildInsights(
     board([
@@ -134,7 +134,7 @@ test("最强阶段不够好时不说输出能力没问题", () => {
       ]),
     ]),
   );
-  assert.match(textFor("壬", strong), /输出能力本身没问题/);
+  assert.match(textFor("壬", strong), /输出本身没问题/);
 });
 
 test("全队集体低于中位时升级为严重", () => {
@@ -148,7 +148,7 @@ test("全队集体低于中位时升级为严重", () => {
   assert.match(team?.text ?? "", /全部低于官方中位/);
 });
 
-test("团灭次数最多的阶段会被点出来", () => {
+test("团灭最多的 P 会被点出来", () => {
   const truncated = [
     { fightId: 1, phaseName: "P5", durationMs: 1000 },
     { fightId: 2, phaseName: "P5", durationMs: 1000 },
