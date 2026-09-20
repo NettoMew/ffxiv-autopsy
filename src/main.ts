@@ -13,6 +13,7 @@ import { StatisticsSource } from "./net/statistics.ts";
 import { renderConsole } from "./render/console.ts";
 import { renderCsv, renderSamplesCsv } from "./render/csv.ts";
 import { renderHtml } from "./render/html.ts";
+import { renderImage } from "./render/image.ts";
 import { renderMarkdown } from "./render/markdown.ts";
 
 const USAGE = `
@@ -27,8 +28,10 @@ const USAGE = `
   --phase <n>                         只评某个阶段，默认全部
   --aggregate <median|best>           同一阶段多次 pull 的取值方式，默认 median
   --window <2|6|12>                   官方统计的取样窗口，单位周，默认 12
-  --format <console,html,markdown,csv>  输出形式，可用逗号叠加，默认 console
+  --format <console,html,markdown,csv,image>  输出形式，可用逗号叠加，默认 console
   --out <目录>                        文件输出目录，默认 out
+  --width <像素>                      导出图片的宽度，默认 1300
+  --scale <倍数>                      导出图片的像素密度，默认 2
   --phases <n>                        baseline 命令强制抓取的阶段上限
   --refresh                           忽略本地缓存重新抓取
   --no-color                          关闭颜色
@@ -42,6 +45,8 @@ interface Options {
   readonly window: Window;
   readonly formats: readonly string[];
   readonly out: string;
+  readonly width: number;
+  readonly scale: number;
   readonly phases: number | undefined;
   readonly refresh: boolean;
 }
@@ -142,7 +147,7 @@ async function score(
   const outputs = new Set(options.formats);
   if (outputs.has("console")) process.stdout.write(renderConsole(board, host));
 
-  if (outputs.has("html") || outputs.has("markdown") || outputs.has("csv")) {
+  if (outputs.has("html") || outputs.has("markdown") || outputs.has("csv") || outputs.has("image")) {
     const dir = resolve(ROOT, options.out);
     mkdirSync(dir, { recursive: true });
     const stem = `${report.code}-${options.metric}`;
@@ -152,6 +157,12 @@ async function score(
     if (outputs.has("csv")) {
       emit(join(dir, `${stem}.csv`), renderCsv(board));
       emit(join(dir, `${stem}-明细.csv`), renderSamplesCsv(board));
+    }
+    if (outputs.has("image")) {
+      const target = join(dir, `${stem}.png`);
+      note("渲染图片");
+      await renderImage(board, host, target, { width: options.width, scale: options.scale });
+      note(`写出 ${target}`);
     }
   }
 
@@ -236,14 +247,21 @@ function parseOptions(argv: readonly string[]): Options {
     .filter(Boolean);
 
   for (const format of formats) {
-    if (!["console", "html", "markdown", "csv"].includes(format)) fail(`不认识的输出形式：${format}`);
+    if (!["console", "html", "markdown", "csv", "image"].includes(format)) fail(`不认识的输出形式：${format}`);
   }
+
+  const width = numberOf(argv, "--width") ?? 1300;
+  const scale = numberOf(argv, "--scale") ?? 2;
+  if (width < 600 || width > 4000) fail(`图片宽度需在 600 到 4000 之间，收到 ${width}`);
+  if (scale < 1 || scale > 4) fail(`像素密度需在 1 到 4 之间，收到 ${scale}`);
 
   return {
     metric,
     aggregate,
     window,
     formats,
+    width,
+    scale,
     fightId: numberOf(argv, "--fight"),
     phaseIndex: numberOf(argv, "--phase"),
     phases: numberOf(argv, "--phases"),

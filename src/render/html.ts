@@ -12,9 +12,20 @@ import { bandOf, dateOf, duration, num, signedPercent } from "./format.ts";
  * 一列竖着看是全队在哪一段集体吃力，都不需要来回翻。
  * 明细表照旧提供，但收进折叠块，要核对时再展开。
  */
-export function renderHtml(board: Scoreboard, host: string): string {
+export interface HtmlOptions {
+  /**
+   * 精简版，供导出图片使用：去掉各阶段明细与未计分阶段那几个折叠块。
+   * 折叠块在网页里点得开，截进静态图片只会变成一排点不开的空条。
+   */
+  readonly compact?: boolean;
+}
+
+export function renderHtml(board: Scoreboard, host: string, options: HtmlOptions = {}): string {
   const title = `${board.report.zoneName || board.report.title} 阶段评分`;
   const phases = phaseColumns(board);
+  const details = options.compact
+    ? ""
+    : `${phases.map((phase) => phaseSection(board, phase)).join("\n")}\n${truncatedSection(board)}`;
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -30,9 +41,8 @@ ${header(board, host)}
 ${overview(board)}
 ${matrix(board, phases)}
 ${insightSection(board)}
-${phases.map((phase) => phaseSection(board, phase)).join("\n")}
-${truncatedSection(board)}
-${footer()}
+${details}
+${footer(options.compact === true)}
 </main>
 </body>
 </html>
@@ -293,10 +303,12 @@ ${board.truncated
   </details>`;
 }
 
-function footer(): string {
+function footer(compact: boolean): string {
   return `  <footer>
     <p>分位来自 FF Logs 官方副本统计的同阶段同职业分布，九个锚点之间线性插值；线性分为 100 × (实测 − 最低) ÷ (最高 − 最低)。</p>
-    <p>被团灭截断的阶段与官方通关数据不可比，官方样本少于 30 条的阶段分布不成立，两者都不计分。</p>
+    <p>被团灭截断的阶段与官方通关数据不可比，官方样本少于 30 条的阶段分布不成立，两者都不计分。</p>${
+      compact ? "\n    <p>逐阶段明细与每把原始值见同名的 HTML 与 CSV。</p>" : ""
+    }
   </footer>`;
 }
 

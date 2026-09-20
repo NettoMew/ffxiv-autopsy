@@ -20,6 +20,7 @@
 - Node.js 23.6 以上。程序直接运行 `.ts`，不需要编译，也没有任何 npm 依赖。
 - 系统自带的 `curl`。Windows 10 1803 以上、macOS 与主流 Linux 都有；装在别处可用
   环境变量 `FFLOGS_CURL` 指定完整路径。
+- 仅导出图片时需要：系统上已有的 Chrome、Edge 或 Chromium，用 `FFLOGS_BROWSER` 指定路径亦可。
 
 ## 配置
 
@@ -38,7 +39,7 @@
 
 ```bash
 node src/main.ts score https://cn.fflogs.com/reports/gY4MwRdjFCzNhnX3
-node src/main.ts score gY4MwRdjFCzNhnX3 --format console,html,markdown,csv
+node src/main.ts score gY4MwRdjFCzNhnX3 --format console,html,markdown,csv,image
 node src/main.ts score gY4MwRdjFCzNhnX3 --phase 3 --aggregate best
 node src/main.ts baseline --zone 59 --boss 1076
 node src/main.ts cache clear
@@ -51,8 +52,10 @@ node src/main.ts cache clear
 | `--phase` | 只评某个阶段 |
 | `--aggregate` | 同一阶段多次 pull 取 `median`（默认）或 `best` |
 | `--window` | 官方统计的取样窗口，`2`、`6`、`12` 周，默认 12 |
-| `--format` | `console`、`html`、`markdown`、`csv`，逗号叠加 |
+| `--format` | `console`、`html`、`markdown`、`csv`、`image`，逗号叠加 |
 | `--out` | 文件输出目录，默认 `out` |
+| `--width` | 导出图片宽度，默认 1300 |
+| `--scale` | 导出图片像素密度，默认 2 |
 | `--refresh` | 忽略本地缓存重新抓取 |
 | `--no-color` | 关闭颜色 |
 
@@ -103,6 +106,24 @@ node src/main.ts cache clear
 矩阵下面依次是关键指标、点评、各阶段明细（折叠起来，要核对时再展开，里面带一条从官方最低到
 最高的分布轨道）、未计分的阶段。全员样本不足的阶段不占矩阵的列，只在下方注明。
 
+## 导出图片
+
+`--format image` 直接产出一张 PNG，可以扔进群里。
+
+```bash
+node src/main.ts score <链接> --format image
+node src/main.ts score <链接> --format image --width 1000 --scale 1
+```
+
+借系统上已有的 Chrome、Edge 或 Chromium 无头渲染，**不引入任何打包好的浏览器**——那类依赖
+动辄几百兆，为了一张图不值得。找不到浏览器时会明确报错，可以用环境变量 `FFLOGS_BROWSER`
+指定完整路径。
+
+图片用的是精简版面：页头、关键指标、分位矩阵、点评。各阶段明细在网页里是折叠块，截进静态
+图片只会变成一排点不开的空条，因此不收进来。高度按内容自动裁切，不会留一大片空白。
+
+默认 1300 宽、像素密度 2（成图 2600 宽，约 700 KB）。嫌大就 `--scale 1`。
+
 ## 三条它不会骗人的地方
 
 **被团灭截断的阶段不计分。** 官方分布取自通关记录，每个阶段都是完整的；拿一个打了 66 秒就团灭的
@@ -130,7 +151,7 @@ src/
   core/      配置、错误、领域类型、终端原语
   net/       v1 接口客户端、统计页数据源与其纯函数解析、HTTP 传输、磁盘缓存
   domain/    阶段切分、数值换算、基准库与分位插值、评分
-  render/    控制台、HTML、Markdown、CSV
+  render/    控制台、HTML、Markdown、CSV、图片导出
 ```
 
 `net/http.ts` 走系统 curl 而不是 Node 内置的 fetch 或 http2，原因写在该文件的注释里：
