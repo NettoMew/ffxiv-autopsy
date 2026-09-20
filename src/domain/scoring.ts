@@ -44,6 +44,8 @@ export interface PlayerScore {
   readonly player: string;
   readonly job: JobKey;
   readonly label: string;
+  /** 输出里用的名字。匿名模式下是职业名，否则就是角色名。 */
+  readonly display: string;
   readonly phases: readonly PhaseScore[];
   /** 按阶段时长加权的分位总分。 */
   readonly percentile: number | null;
@@ -57,6 +59,13 @@ export interface Scoreboard {
   readonly metric: Metric;
   readonly metricLabel: string;
   readonly aggregate: Aggregate;
+  /**
+   * 匿名模式：角色名换成职业名，不输出记录者与报告地址。
+   *
+   * 默认开着。这类报告十有八九是要发给一群人看的，
+   * 默认把名字亮出来等于默认在点名，不合适。
+   */
+  readonly anonymous: boolean;
   readonly baseline: Baseline;
   readonly samples: readonly Sample[];
   readonly players: readonly PlayerScore[];
@@ -129,7 +138,7 @@ export function buildScoreboard(
   report: Report,
   baseline: Baseline,
   samples: readonly Sample[],
-  options: { metric: Metric; aggregate: Aggregate },
+  options: { metric: Metric; aggregate: Aggregate; anonymous: boolean },
 ): Scoreboard {
   const byPlayer = new Map<string, Map<number, Sample[]>>();
 
@@ -180,6 +189,7 @@ export function buildScoreboard(
     players.push({
       player,
       job,
+      display: player,
       label: scored.find((phase) => phase.curve)?.curve?.label ?? job,
       phases: scored,
       percentile: weight > 0 ? weighted(rated, (phase) => phase.percentile ?? 0) : null,
@@ -190,6 +200,7 @@ export function buildScoreboard(
   }
 
   players.sort((a, b) => (b.percentile ?? -1) - (a.percentile ?? -1));
+  const named = withDisplayNames(players, options.anonymous);
 
   const truncated = report.fights.flatMap((fight) =>
     fight.phases
@@ -202,11 +213,33 @@ export function buildScoreboard(
     metric: options.metric,
     metricLabel: METRICS[options.metric].label,
     aggregate: options.aggregate,
+    anonymous: options.anonymous,
     baseline,
     samples,
-    players,
+    players: named,
     truncated,
   };
+}
+
+/**
+ * 决定每个人在输出里叫什么。
+ *
+ * 匿名模式下用职业名代替角色名。一队里出现两个同职业时补上序号，
+ * 否则两行都叫「钐镰客」，谁是谁就说不清了。
+ */
+function withDisplayNames(players: readonly PlayerScore[], anonymous: boolean): PlayerScore[] {
+  if (!anonymous) return [...players];
+
+  const totals = new Map<string, number>();
+  for (const player of players) totals.set(player.label, (totals.get(player.label) ?? 0) + 1);
+
+  const seen = new Map<string, number>();
+  return players.map((player) => {
+    if ((totals.get(player.label) ?? 1) === 1) return { ...player, display: player.label };
+    const ordinal = (seen.get(player.label) ?? 0) + 1;
+    seen.set(player.label, ordinal);
+    return { ...player, display: `${player.label} ${ordinal}` };
+  });
 }
 
 function median(sorted: readonly number[]): number {

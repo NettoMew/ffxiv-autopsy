@@ -21,7 +21,7 @@ export interface HtmlOptions {
 }
 
 export function renderHtml(board: Scoreboard, host: string, options: HtmlOptions = {}): string {
-  const title = `${board.report.zoneName || board.report.title} 逐 P 评分`;
+  const title = `${board.report.zoneName || (board.anonymous ? "战斗报告" : board.report.title)} 逐 P 评分`;
   const phases = phaseColumns(board);
   const open = options.forImage === true;
 
@@ -107,7 +107,7 @@ export function renderCard(board: Scoreboard, host: string, card: Card): string 
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>${escape(board.report.zoneName || board.report.title)}</title>
+<title>${escape(board.report.zoneName || (board.anonymous ? "战斗报告" : board.report.title))}</title>
 <style>${STYLE}</style>
 </head>
 <body>
@@ -121,7 +121,8 @@ ${body}
 
 /** 单张图片也要认得出自己出自哪份日志。 */
 function caption(board: Scoreboard): string {
-  return `  <p class="caption">${escape(board.report.zoneName || board.report.title)} · ${escape(dateOf(board.report.start))} · 按 ${escape(board.metricLabel)} 算 · 比官方最近 ${escape(WINDOW_LABELS[board.baseline.window])}</p>`;
+  const where = board.report.zoneName || (board.anonymous ? "战斗报告" : board.report.title);
+  return `  <p class="caption">${escape(where)} · ${escape(dateOf(board.report.start))} · 按 ${escape(board.metricLabel)} 算 · 比官方最近 ${escape(WINDOW_LABELS[board.baseline.window])}</p>`;
 }
 
 /** 矩阵的列。长长的英文阶段名在表头里放不下，取冒号前的那一段，全名留在悬停提示里。 */
@@ -147,12 +148,19 @@ function isScored(board: Scoreboard, index: number): boolean {
 }
 
 function header(board: Scoreboard, host: string): string {
+  const origin = board.anonymous
+    ? `    <p class="subtitle">${escape(dateOf(board.report.start))}</p>`
+    : `    <p class="subtitle">${escape(board.report.title)} · ${escape(dateOf(board.report.start))} · 记录者 ${escape(board.report.owner)}</p>`;
+
+  const link = board.anonymous
+    ? ""
+    : `      <a href="https://${escape(host)}/reports/${escape(board.report.code)}">${escape(board.report.code)}</a>\n      ·`;
+
   return `  <header>
-    <h1>${escape(board.report.zoneName || board.report.title)}</h1>
-    <p class="subtitle">${escape(board.report.title)} · ${escape(dateOf(board.report.start))} · 记录者 ${escape(board.report.owner)}</p>
+    <h1>${escape(board.report.zoneName || (board.anonymous ? "战斗报告" : board.report.title))}</h1>
+${origin}
     <p class="subtitle">
-      <a href="https://${escape(host)}/reports/${escape(board.report.code)}">${escape(board.report.code)}</a>
-      · 按 ${escape(board.metricLabel)} 算
+${link} 按 ${escape(board.metricLabel)} 算
       · 比官方最近 ${escape(WINDOW_LABELS[board.baseline.window])}
       · 分区 ${board.baseline.partition}
       · 一个 P 打多把时取${board.aggregate === "best" ? "最好的一把" : "中位数"}
@@ -208,10 +216,10 @@ function matrix(board: Scoreboard, all: readonly PhaseColumn[]): string {
   const body = board.players
     .map((player) => {
       const cells = phases.map((phase) => cell(player, phase)).join("");
+      const job = board.anonymous ? "" : `          <td class="muted">${escape(player.label)}</td>\n`;
       return `        <tr>
-          <td class="name">${escape(player.player)}</td>
-          <td class="muted">${escape(player.label)}</td>
-${cells}
+          <td class="name">${escape(player.display)}</td>
+${job}${cells}
           <td class="c total">${score(player.percentile)}</td>
           <td class="c muted small">${rated(player)}</td>
         </tr>`;
@@ -223,7 +231,7 @@ ${cells}
     <p class="subtitle">横着看是某个人在哪个 P 掉了，竖着看是全队卡在哪个 P。鼠标停在格子上能看到原始数值。</p>
     <div class="scroll">
       <table class="matrix">
-        <thead><tr><th>玩家</th><th>职业</th>${head}<th class="c">总评</th><th class="c">算分 P</th></tr></thead>
+        <thead><tr><th>玩家</th>${board.anonymous ? "" : "<th>职业</th>"}${head}<th class="c">总评</th><th class="c">算分 P</th></tr></thead>
         <tbody>
 ${body}
         </tbody>
@@ -329,15 +337,15 @@ function phaseSection(board: Scoreboard, column: PhaseColumn, open: boolean): st
   return `  ${block(open, caption, meta)}
     <div class="scroll">
       <table>
-        <thead><tr><th>玩家</th><th>职业</th><th class="n">${escape(board.metricLabel)}</th><th class="n">最好</th><th class="n">最差</th><th class="n">官方中位</th><th class="n">比中位</th><th class="n">百分位</th><th class="n">区间分</th><th class="n">样本数</th><th class="track-head">在官方分布里的位置</th></tr></thead>
+        <thead><tr><th>玩家</th>${board.anonymous ? "" : "<th>职业</th>"}<th class="n">${escape(board.metricLabel)}</th><th class="n">最好</th><th class="n">最差</th><th class="n">官方中位</th><th class="n">比中位</th><th class="n">百分位</th><th class="n">区间分</th><th class="n">样本数</th><th class="track-head">在官方分布里的位置</th></tr></thead>
         <tbody>
 ${rows
   .map(({ player, phase }) => {
     if (!phase) return "";
+    const job = board.anonymous ? "" : `            <td class="muted">${escape(player.label)}</td>\n`;
     return `          <tr>
-            <td class="name">${escape(player.player)}</td>
-            <td class="muted">${escape(player.label)}</td>
-            <td class="n">${escape(num(phase.value))}</td>
+            <td class="name">${escape(player.display)}</td>
+${job}            <td class="n">${escape(num(phase.value))}</td>
             <td class="n">${escape(num(phase.best))}</td>
             <td class="n">${escape(num(phase.worst))}</td>
             <td class="n">${phase.curve ? escape(num(quantile(phase.curve, 50))) : "—"}</td>

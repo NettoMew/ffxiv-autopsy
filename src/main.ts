@@ -38,6 +38,7 @@ const USAGE = `
   --width <像素>                      导出图片的宽度，默认 1300
   --scale <倍数>                      导出图片的像素密度，默认 2
   --phases <n>                        baseline 命令最多抓到第几个 P
+  --names                             显示真实角色名与报告地址，默认匿名
   --refresh                           忽略本地缓存重新抓取
   --no-color                          关闭颜色
 `;
@@ -53,6 +54,7 @@ interface Options {
   readonly width: number;
   readonly scale: number;
   readonly phases: number | undefined;
+  readonly anonymous: boolean;
   readonly refresh: boolean;
 }
 
@@ -147,6 +149,7 @@ async function score(
   const board = buildScoreboard(report, baseline, samples, {
     metric: options.metric,
     aggregate: options.aggregate,
+    anonymous: options.anonymous,
   });
 
   const outputs = new Set(options.formats);
@@ -276,6 +279,7 @@ function parseOptions(argv: readonly string[]): Options {
     phaseIndex: numberOf(argv, "--phase"),
     phases: numberOf(argv, "--phases"),
     out: valueOf(argv, "--out") ?? "out",
+    anonymous: !argv.includes("--names"),
     refresh: argv.includes("--refresh"),
   };
 }
@@ -314,7 +318,13 @@ function runFolder(board: Scoreboard): string {
   const at = board.report.start > 0 ? new Date(board.report.start) : new Date();
   const pad = (value: number): string => String(value).padStart(2, "0");
   const stamp = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}-${pad(at.getHours())}${pad(at.getMinutes())}`;
-  return `${stamp}-${board.report.code}-${board.metric}`;
+
+  // 报告代码本身就等于那条链接，匿名时连目录名也不该带着它。
+  const who = board.anonymous
+    ? (board.report.zoneName || "战斗报告").replace(/[\\/:*?"<>|]/g, "")
+    : board.report.code;
+
+  return `${stamp}-${who}-${board.metric}`;
 }
 
 function emit(path: string, content: string): void {

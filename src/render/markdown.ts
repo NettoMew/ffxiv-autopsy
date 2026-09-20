@@ -15,27 +15,33 @@ export function renderMarkdown(board: Scoreboard, host: string): string {
   const lines: string[] = [];
 
   lines.push(
-    `# ${board.report.zoneName || board.report.title} 逐 P 评分`,
+    `# ${board.report.zoneName || (board.anonymous ? "战斗报告" : board.report.title)} 逐 P 评分`,
     "",
-    `- 日志标题：${board.report.title}`,
-    `- 记录者：${board.report.owner}`,
+    ...(board.anonymous
+      ? []
+      : [
+          `- 日志标题：${board.report.title}`,
+          `- 记录者：${board.report.owner}`,
+          `- 报告：https://${host}/reports/${board.report.code}`,
+        ]),
     `- 时间：${dateOf(board.report.start)}`,
-    `- 报告：https://${host}/reports/${board.report.code}`,
     `- 口径：${board.metricLabel}，比的是官方最近 ${WINDOW_LABELS[board.baseline.window]}、分区 ${board.baseline.partition} 的数据`,
     `- 同一个 P 打了多把时，取${board.aggregate === "best" ? "最好的一把" : "中位数"}`,
     "",
     "## 玩家总评",
     "",
-    "| 玩家 | 职业 | 百分位 | 区间分 | 算分 P | 最好的 P | 最差的 P |",
-    "| --- | --- | ---: | ---: | ---: | --- | --- |",
+    board.anonymous
+      ? "| 玩家 | 百分位 | 区间分 | 算分 P | 最好的 P | 最差的 P |"
+      : "| 玩家 | 职业 | 百分位 | 区间分 | 算分 P | 最好的 P | 最差的 P |",
+    board.anonymous ? "| --- | ---: | ---: | ---: | --- | --- |" : "| --- | --- | ---: | ---: | ---: | --- | --- |",
   );
 
   for (const player of board.players) {
     const rated = player.phases.filter((phase) => phase.percentile !== null);
     lines.push(
       row([
-        player.player,
-        player.label,
+        player.display,
+        ...(board.anonymous ? [] : [player.label]),
         player.percentile === null ? "—" : player.percentile.toFixed(1),
         player.linear === null ? "—" : player.linear.toFixed(1),
         `${rated.length} / ${player.phases.length}`,
@@ -74,16 +80,20 @@ export function renderMarkdown(board: Scoreboard, host: string): string {
       "",
       `平均 ${duration(sample.averageDurationMs)}，打了 ${sample.pulls} 把。`,
       "",
-      `| 玩家 | 职业 | ${board.metricLabel} | 最好 | 官方中位 | 比中位 | 百分位 | 区间分 | 样本数 |`,
-      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+      board.anonymous
+        ? `| 玩家 | ${board.metricLabel} | 最好 | 官方中位 | 比中位 | 百分位 | 区间分 | 样本数 |`
+        : `| 玩家 | 职业 | ${board.metricLabel} | 最好 | 官方中位 | 比中位 | 百分位 | 区间分 | 样本数 |`,
+      board.anonymous
+        ? "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+        : "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     );
 
     for (const { player, phase } of rows) {
       if (!phase) continue;
       lines.push(
         row([
-          player.player,
-          player.label,
+          player.display,
+          ...(board.anonymous ? [] : [player.label]),
           num(phase.value),
           num(phase.best),
           phase.curve ? num(quantile(phase.curve, 50)) : "—",

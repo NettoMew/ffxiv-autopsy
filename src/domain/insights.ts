@@ -117,7 +117,7 @@ export function wipePhases(board: Scoreboard): { name: string; count: number }[]
 function playerInsights(player: PlayerScore): Insight[] {
   const rated = player.phases.filter((phase) => phase.percentile !== null);
   if (rated.length === 0) {
-    return [{ severity: "note", subject: player.player, text: "所有 P 的官方样本都太少，算不出分。" }];
+    return [{ severity: "note", subject: player.display, text: "所有 P 的官方样本都太少，算不出分。" }];
   }
 
   const candidates: Insight[] = [];
@@ -130,7 +130,7 @@ function playerInsights(player: PlayerScore): Insight[] {
     if (floor !== null && weakest.value < floor) {
       candidates.push({
         severity: "critical",
-        subject: player.player,
+        subject: player.display,
         text:
           `最薄弱的是 ${weakest.phaseName}，${round(weakest.value)} 比官方最低值 ${round(floor)} 还低，` +
           `同职业在这个 P 没有一条公开记录比这更差。`,
@@ -138,7 +138,7 @@ function playerInsights(player: PlayerScore): Insight[] {
     } else if ((weakest.percentile ?? 100) < 10) {
       candidates.push({
         severity: "critical",
-        subject: player.player,
+        subject: player.display,
         text:
           `最薄弱的是 ${weakest.phaseName}，${weakest.percentile?.toFixed(1)} 分，` +
           `排在同职业最后 10%，比官方中位低 ${percent(-(weakest.vsMedian ?? 0))}。`,
@@ -146,7 +146,7 @@ function playerInsights(player: PlayerScore): Insight[] {
     } else if ((weakest.percentile ?? 100) < 25) {
       candidates.push({
         severity: "warning",
-        subject: player.player,
+        subject: player.display,
         text:
           `最薄弱的是 ${weakest.phaseName}，${weakest.percentile?.toFixed(1)} 分，` +
           `排在同职业最后 25%，比官方中位低 ${percent(-(weakest.vsMedian ?? 0))}。`,
@@ -154,7 +154,7 @@ function playerInsights(player: PlayerScore): Insight[] {
     } else {
       candidates.push({
         severity: "note",
-        subject: player.player,
+        subject: player.display,
         text:
           `最薄弱的是 ${weakest.phaseName}，${weakest.percentile?.toFixed(1)} 分，` +
           `相比官方中位 ${signed(weakest.vsMedian ?? 0)}。`,
@@ -171,7 +171,7 @@ function playerInsights(player: PlayerScore): Insight[] {
       const capable = (strongest.percentile ?? 0) >= 60;
       candidates.push({
         severity: "note",
-        subject: player.player,
+        subject: player.display,
         text:
           `${strongest.phaseName} 能打到 ${strongest.percentile?.toFixed(1)} 分，和最薄弱那个 P 差了 ${gap.toFixed(1)} 分。` +
           (capable ? "输出本身没问题，短板集中在个别 P。" : "各 P 之间落差很大。"),
@@ -184,7 +184,7 @@ function playerInsights(player: PlayerScore): Insight[] {
     const swing = (volatile.best - volatile.worst) / volatile.value;
     candidates.push({
       severity: "warning",
-      subject: player.player,
+      subject: player.display,
       text:
         `${volatile.phaseName} 打了 ${volatile.pulls} 把，最好 ${round(volatile.best)}、最差 ${round(volatile.worst)}，` +
         `差了 ${percent(swing)}，中间有几把明显失手。总分取的是中位数，个别翻车不影响分数。`,
@@ -194,7 +194,7 @@ function playerInsights(player: PlayerScore): Insight[] {
   if (strongest && (strongest.percentile ?? 0) >= 90) {
     candidates.push({
       severity: "good",
-      subject: player.player,
+      subject: player.display,
       text: `${strongest.phaseName} 打到 ${strongest.percentile?.toFixed(1)} 分，这个 P 打得很好。`,
     });
   }

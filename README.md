@@ -40,9 +40,9 @@
 ## 使用
 
 ```bash
-node src/main.ts score https://cn.fflogs.com/reports/gY4MwRdjFCzNhnX3
-node src/main.ts score gY4MwRdjFCzNhnX3 --format console,html,markdown,csv,image
-node src/main.ts score gY4MwRdjFCzNhnX3 --phase 3 --aggregate best
+node src/main.ts score https://cn.fflogs.com/reports/xxxxxxxxxxxxxxxx
+node src/main.ts score xxxxxxxxxxxxxxxx --format console,html,markdown,csv,image
+node src/main.ts score xxxxxxxxxxxxxxxx --phase 3 --aggregate best
 node src/main.ts baseline --zone 59 --boss 1076
 node src/main.ts cache clear
 ```
@@ -51,7 +51,7 @@ node src/main.ts cache clear
 
 ```bash
 npm link
-autopsy score https://cn.fflogs.com/reports/gY4MwRdjFCzNhnX3
+autopsy score https://cn.fflogs.com/reports/xxxxxxxxxxxxxxxx
 ```
 
 | 选项 | 说明 |
@@ -65,6 +65,7 @@ autopsy score https://cn.fflogs.com/reports/gY4MwRdjFCzNhnX3
 | `--out` | 文件输出目录，默认 `out` |
 | `--width` | 导出图片宽度，默认 1300 |
 | `--scale` | 导出图片像素密度，默认 2 |
+| `--names` | 显示真实角色名与报告地址，默认匿名 |
 | `--refresh` | 忽略本地缓存重新抓取 |
 | `--no-color` | 关闭颜色 |
 
@@ -73,7 +74,7 @@ autopsy score https://cn.fflogs.com/reports/gY4MwRdjFCzNhnX3
 每次运行单独一个文件夹，按**日志自身的时间**命名，一晚上跑好几份也不会混在一起：
 
 ```
-out/2026-09-20-1907-gY4MwRdjFCzNhnX3-rdps/
+out/2026-09-20-1907-幻想龙诗绝境战-rdps/
   01-总览.png          02-点评.png
   03-P1.png            04-P2.png
   05-P3.png            06-P4.png
@@ -83,7 +84,17 @@ out/2026-09-20-1907-gY4MwRdjFCzNhnX3-rdps/
 ```
 
 用日志时间而不是运行时间，同一份日志重跑会覆盖旧结果，这正是想要的；换个口径算则是另一个
-文件夹，因为目录名带着口径。
+文件夹，因为目录名带着口径。加了 `--names` 时目录名用报告代码，因为那时本来也不打算藏。
+
+## 默认匿名
+
+输出里**不出现角色名、记录者和报告地址**，每个人按职业显示；同队两个同职业时补序号，
+不会两行同名。输出目录名也不带报告代码——那串代码本身就等于那条链接。
+
+这样默认是因为这类报告十有八九要发给一群人看，默认把名字亮出来等于默认在点名。
+每个人知道自己打的是什么职业，队内该认的还是认得出来。
+
+自己私下核对想看真名，加 `--names`。
 
 ## 两个分数
 
@@ -107,8 +118,8 @@ out/2026-09-20-1907-gY4MwRdjFCzNhnX3-rdps/
 ```
 观察 全队      全队最吃力的是 P3: Nidhogg，平均 49.3 分，8 个人里有 5 个低于官方中位。
 观察 全队      14 把里 P2: King Thordan、P5: King Thordan II 各倒了 5 把，是团灭最多的两个 P。
-严重 雁北向    最薄弱的是 P2: King Thordan，9.4 分，排在同职业最后 10%，比官方中位低 19.6%。
-注意 纾        P3: Nidhogg 打了 7 把，最好 5,040、最差 3,215，差了 38.3%，中间有几把明显失手。
+严重 学者      最薄弱的是 P2: King Thordan，9.4 分，排在同职业最后 10%，比官方中位低 19.6%。
+注意 暗黑骑士  P3: Nidhogg 打了 7 把，最好 5,040、最差 3,215，差了 38.3%，中间有几把明显失手。
 ```
 
 四个程度是 `严重`、`注意`、`观察`、`亮点`。判据与措辞上的克制写在
@@ -120,10 +131,10 @@ out/2026-09-20-1907-gY4MwRdjFCzNhnX3-rdps/
 版面以**各 P 百分位**的矩阵开头：
 
 ```
-            P2   P3   P4  Intermission   总评   算分 P
-罗天逸      95   88   21       60        75.6    4/5
-荼茶山      34   22   44       26        30.9    4/5
-布讲栗猫    31   36   16        7        25.6    4/5
+玩家        P2   P3   P4  Intermission   总评   算分 P
+机工士      95   88   21       60        75.6    4/5
+龙骑士      34   22   44       26        30.9    4/5
+召唤师      31   36   16        7        25.6    4/5
 ```
 
 同样一组数字，排成几张互不相干的明细表，和排成一张玩家乘 P 的矩阵，读出来的东西完全不同：

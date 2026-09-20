@@ -17,13 +17,17 @@ export function renderConsole(board: Scoreboard, host: string): string {
 
   lines.push(
     "",
-    `${style.bold(board.report.zoneName || board.report.title)}  ${style.gray("·")}  ${board.report.title}`,
+    board.anonymous
+      ? style.bold(board.report.zoneName || "战斗报告")
+      : `${style.bold(board.report.zoneName || board.report.title)}  ${style.gray("·")}  ${board.report.title}`,
     style.gray(
-      [
-        `记录者 ${board.report.owner}`,
-        dateOf(board.report.start),
-        `https://${host}/reports/${board.report.code}`,
-      ].join("   "),
+      board.anonymous
+        ? dateOf(board.report.start)
+        : [
+            `记录者 ${board.report.owner}`,
+            dateOf(board.report.start),
+            `https://${host}/reports/${board.report.code}`,
+          ].join("   "),
     ),
     style.gray(
       [
@@ -40,7 +44,7 @@ export function renderConsole(board: Scoreboard, host: string): string {
     table(
       [
         { header: "玩家" },
-        { header: "职业" },
+        ...(board.anonymous ? [] : [{ header: "职业" }]),
         { header: "百分位", align: "right" },
         { header: "区间分", align: "right" },
         { header: "算分 P", align: "right" },
@@ -50,8 +54,8 @@ export function renderConsole(board: Scoreboard, host: string): string {
       board.players.map((player) => {
         const rated = player.phases.filter((phase) => phase.percentile !== null);
         return [
-          player.player,
-          player.label,
+          player.display,
+          ...(board.anonymous ? [] : [player.label]),
           paintPercentile(player.percentile),
           player.linear === null ? style.gray("—") : player.linear.toFixed(1),
           `${rated.length} / ${player.phases.length}`,
@@ -95,7 +99,7 @@ export function renderConsole(board: Scoreboard, host: string): string {
       table(
         [
           { header: "玩家" },
-          { header: "职业" },
+          ...(board.anonymous ? [] : [{ header: "职业" }]),
           { header: board.metricLabel, align: "right" },
           { header: "最好", align: "right" },
           { header: "官方中位", align: "right" },
@@ -105,8 +109,8 @@ export function renderConsole(board: Scoreboard, host: string): string {
           { header: "样本数", align: "right" },
         ],
         rows.map(({ player, phase }) => [
-          player.player,
-          player.label,
+          player.display,
+          ...(board.anonymous ? [] : [player.label]),
           num(phase.value),
           num(phase.best),
           phase.curve ? num(quantile(phase.curve, 50)) : style.gray("—"),
