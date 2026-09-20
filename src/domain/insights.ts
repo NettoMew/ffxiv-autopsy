@@ -105,7 +105,7 @@ function teamInsights(board: Scoreboard): Insight[] {
 }
 
 /** 按团灭次数排序的阶段。团灭点本身就是一条结论。 */
-function wipePhases(board: Scoreboard): { name: string; count: number }[] {
+export function wipePhases(board: Scoreboard): { name: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const item of board.truncated) counts.set(item.phaseName, (counts.get(item.phaseName) ?? 0) + 1);
   return [...counts]
