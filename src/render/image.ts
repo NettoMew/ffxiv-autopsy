@@ -5,19 +5,19 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { UserError } from "../core/errors.ts";
 import type { Scoreboard } from "../domain/scoring.ts";
-import { renderHtml } from "./html.ts";
+import { listCards, renderCard } from "./html.ts";
 
 const run = promisify(execFile);
 
 /**
- * 把报告导出成一张图。
+ * 把报告导出成图片。
  *
  * 借系统上已有的 Chrome 或 Edge 无头渲染，不引入任何打包好的浏览器——
  * 那类依赖动辄几百兆，为了一张图不值得。找不到浏览器时会明确说清楚，
  * 而不是悄悄少生成一个文件。
  *
- * 导出的内容与网页一致，但各阶段明细一律摊开：网页里那几块是折叠的，
- * 点一下就展开，静态图片点不动，收着等于没有。
+ * 报告不出整张长图，而是拆成几块各出一张：总览、点评、每个 P、没算分的 P。
+ * 近万像素的长图扔进群里没人看得下去，拆开之后每张都是能一眼看完的大小。
  */
 
 export interface ImageOptions {
@@ -29,19 +29,59 @@ export interface ImageOptions {
 /** 页面渲染完后把自己的高度写进 DOM，供下一步按内容裁切窗口。 */
 const MEASURE = `<script>document.documentElement.setAttribute("data-height",String(document.body.scrollHeight))</script>`;
 
-export async function renderImage(
+/**
+ * 每一块单独出一张图。
+ *
+ * 整份报告摊平是一张近万像素的长图，扔进群里没人看得下去；
+ * 拆开之后每张都是能一眼看完的大小，想聊哪个 P 就发哪一张。
+ */
+export async function renderImages(
   board: Scoreboard,
   host: string,
+  directory: string,
+  options: ImageOptions,
+  onProgress?: (done: number, total: number, title: string) => void,
+): Promise<string[]> {
+  const browser = findBrowser();
+  const workspace = mkdtempSync(join(tmpdir(), "fflogs-shot-"));
+  const cards = listCards(board);
+  const written: string[] = [];
+
+  try {
+    for (const [index, entry] of cards.entries()) {
+      onProgress?.(index, cards.length, entry.title);
+
+      const name = `${String(index + 1).padStart(2, "0")}-${safeName(entry.slug)}.png`;
+      const target = join(directory, name);
+      await shoot(browser, workspace, renderCard(board, host, entry.card), target, options);
+      written.push(target);
+    }
+
+    onProgress?.(cards.length, cards.length, "完成");
+    return written;
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+}
+
+/**
+ * 先量高再截图。
+ *
+ * 截图只按窗口尺寸来，所以让页面渲染完把自己的 scrollHeight 写进 DOM，
+ * 用 --dump-dom 读回来，再按这个高度截一次，图片底部才不会拖一片空白。
+ */
+async function shoot(
+  browser: string,
+  workspace: string,
+  html: string,
   target: string,
   options: ImageOptions,
 ): Promise<void> {
-  const browser = findBrowser();
-  const workspace = mkdtempSync(join(tmpdir(), "fflogs-shot-"));
   const page = join(workspace, "page.html");
   const profile = join(workspace, "profile");
 
   try {
-    writeFileSync(page, renderHtml(board, host, { forImage: true }).replace("</body>", `${MEASURE}</body>`), "utf8");
+    writeFileSync(page, html.replace("</body>", `${MEASURE}</body>`), "utf8");
 
     const url = fileUrl(page);
     const base = [
@@ -76,9 +116,15 @@ export async function renderImage(
   } catch (error) {
     if (error instanceof UserError) throw error;
     throw new UserError("导出图片失败。", error instanceof Error ? error.message : undefined);
-  } finally {
-    rmSync(workspace, { recursive: true, force: true });
   }
+}
+
+/** 文件名里不能出现冒号、问号这些字符，空格换成连字符更好敲。 */
+function safeName(name: string): string {
+  return name
+    .replace(/[\\/:*?"<>|!,]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
 }
 
 function fileUrl(path: string): string {

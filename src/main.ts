@@ -5,7 +5,7 @@ import { fail, UserError } from "./core/errors.ts";
 import { style } from "./core/terminal.ts";
 import { isMetric, WINDOW_LABELS, type Metric, type Report, type Window } from "./core/types.ts";
 import { BASELINE_DIR, ensureBaseline } from "./domain/baseline.ts";
-import { buildScoreboard, collect, neededPhases, type Aggregate } from "./domain/scoring.ts";
+import { buildScoreboard, collect, neededPhases, type Aggregate, type Scoreboard } from "./domain/scoring.ts";
 import { CACHE_DIR, clearCache } from "./net/cache.ts";
 import { assertCurlAvailable } from "./net/http.ts";
 import { FfLogsApi } from "./net/fflogs.ts";
@@ -13,7 +13,7 @@ import { StatisticsSource } from "./net/statistics.ts";
 import { renderConsole } from "./render/console.ts";
 import { renderCsv, renderSamplesCsv } from "./render/csv.ts";
 import { renderHtml } from "./render/html.ts";
-import { renderImage } from "./render/image.ts";
+import { renderImages } from "./render/image.ts";
 import { renderMarkdown } from "./render/markdown.ts";
 
 const USAGE = `
@@ -148,22 +148,27 @@ async function score(
   if (outputs.has("console")) process.stdout.write(renderConsole(board, host));
 
   if (outputs.has("html") || outputs.has("markdown") || outputs.has("csv") || outputs.has("image")) {
-    const dir = resolve(ROOT, options.out);
+    const dir = resolve(ROOT, options.out, runFolder(board));
     mkdirSync(dir, { recursive: true });
-    const stem = `${report.code}-${options.metric}`;
 
-    if (outputs.has("html")) emit(join(dir, `${stem}.html`), renderHtml(board, host));
-    if (outputs.has("markdown")) emit(join(dir, `${stem}.md`), renderMarkdown(board, host));
+    if (outputs.has("html")) emit(join(dir, "报告.html"), renderHtml(board, host));
+    if (outputs.has("markdown")) emit(join(dir, "报告.md"), renderMarkdown(board, host));
     if (outputs.has("csv")) {
-      emit(join(dir, `${stem}.csv`), renderCsv(board));
-      emit(join(dir, `${stem}-明细.csv`), renderSamplesCsv(board));
+      emit(join(dir, "汇总.csv"), renderCsv(board));
+      emit(join(dir, "明细.csv"), renderSamplesCsv(board));
     }
     if (outputs.has("image")) {
-      const target = join(dir, `${stem}.png`);
-      note("渲染图片");
-      await renderImage(board, host, target, { width: options.width, scale: options.scale });
-      note(`写出 ${target}`);
+      const files = await renderImages(
+        board,
+        host,
+        dir,
+        { width: options.width, scale: options.scale },
+        (done, total, title) => progress(done, total, `渲染 ${title}`),
+      );
+      note(`写出 ${files.length} 张图片`);
     }
+
+    note(`输出目录 ${dir}`);
   }
 
   reportBudget(api);
@@ -292,6 +297,19 @@ function parseReportCode(input: string): string {
   const code = fromUrl ?? input.trim();
   if (!/^[A-Za-z0-9]{8,}$/.test(code)) fail(`看不出报告代码：${input}`);
   return code;
+}
+
+/**
+ * 每次运行单独一个文件夹，按日志的时间命名。
+ *
+ * 一晚开荒下来会跑好几份报告，全堆在一个目录里靠文件名区分很快就乱了。
+ * 用日志自身的时间而不是运行时间，同一份日志重跑会覆盖旧结果，正是想要的。
+ */
+function runFolder(board: Scoreboard): string {
+  const at = board.report.start > 0 ? new Date(board.report.start) : new Date();
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  const stamp = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}-${pad(at.getHours())}${pad(at.getMinutes())}`;
+  return `${stamp}-${board.report.code}-${board.metric}`;
 }
 
 function emit(path: string, content: string): void {

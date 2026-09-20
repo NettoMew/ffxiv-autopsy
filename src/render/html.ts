@@ -54,6 +54,76 @@ interface PhaseColumn {
   readonly full: string;
 }
 
+/**
+ * 可以单独成图的一块。
+ *
+ * 整份报告摊平是一张近万像素的长图，扔进群里没人看得下去。
+ * 拆成一块一块，每块自带一行说明自己是谁，单看也不会不知所云。
+ */
+export type Card =
+  | { readonly kind: "overview" }
+  | { readonly kind: "insights" }
+  | { readonly kind: "phase"; readonly index: number }
+  | { readonly kind: "truncated" };
+
+export interface CardEntry {
+  readonly card: Card;
+  /** 图里显示的完整标题。 */
+  readonly title: string;
+  /** 文件名用的短名，例如 P2、Intermission。 */
+  readonly slug: string;
+}
+
+export function listCards(board: Scoreboard): CardEntry[] {
+  const cards: CardEntry[] = [{ card: { kind: "overview" }, title: "总览", slug: "总览" }];
+
+  if (buildInsights(board).length > 0) cards.push({ card: { kind: "insights" }, title: "点评", slug: "点评" });
+
+  for (const column of phaseColumns(board)) {
+    if (!board.players.some((player) => player.phases.some((phase) => phase.phaseIndex === column.index))) continue;
+    cards.push({ card: { kind: "phase", index: column.index }, title: column.full, slug: column.short });
+  }
+
+  if (board.truncated.length > 0) {
+    cards.push({ card: { kind: "truncated" }, title: "没算分的 P", slug: "没算分的P" });
+  }
+
+  return cards;
+}
+
+/** 把一块单独渲染成一个完整页面，供截图使用。 */
+export function renderCard(board: Scoreboard, host: string, card: Card): string {
+  const phases = phaseColumns(board);
+  const body =
+    card.kind === "overview"
+      ? `${header(board, host)}\n${overview(board)}\n${matrix(board, phases)}`
+      : card.kind === "insights"
+        ? `${caption(board)}\n${insightSection(board)}`
+        : card.kind === "truncated"
+          ? `${caption(board)}\n${truncatedSection(board, true)}`
+          : `${caption(board)}\n${phaseSection(board, phases.find((phase) => phase.index === card.index) ?? phases[0]!, true)}`;
+
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>${escape(board.report.zoneName || board.report.title)}</title>
+<style>${STYLE}</style>
+</head>
+<body>
+<main class="card-page">
+${body}
+</main>
+</body>
+</html>
+`;
+}
+
+/** 单张图片也要认得出自己出自哪份日志。 */
+function caption(board: Scoreboard): string {
+  return `  <p class="caption">${escape(board.report.zoneName || board.report.title)} · ${escape(dateOf(board.report.start))} · 按 ${escape(board.metricLabel)} 算 · 比官方最近 ${escape(WINDOW_LABELS[board.baseline.window])}</p>`;
+}
+
 /** 矩阵的列。长长的英文阶段名在表头里放不下，取冒号前的那一段，全名留在悬停提示里。 */
 function phaseColumns(board: Scoreboard): PhaseColumn[] {
   const seen = new Map<number, string>();
@@ -419,6 +489,12 @@ tbody tr:hover{background:var(--panel)}
 .phase[open] summary::before{transform:rotate(90deg)}
 .phase summary:hover{background:#1c212b}
 .phase.open{margin-top:22px}
+.card-page{padding:26px 22px 30px}
+.card-page section{margin-top:22px}
+.card-page section:first-child{margin-top:0}
+.card-page header{padding-bottom:18px}
+.card-page .phase{margin-top:0}
+.caption{margin:0 0 14px;color:var(--muted);font-size:12px}
 .phase-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:12px 16px}
 .summary-name{font-weight:600}
 .phase table{margin:0}
