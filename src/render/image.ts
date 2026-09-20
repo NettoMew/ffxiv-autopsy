@@ -16,8 +16,8 @@ const run = promisify(execFile);
  * 那类依赖动辄几百兆，为了一张图不值得。找不到浏览器时会明确说清楚，
  * 而不是悄悄少生成一个文件。
  *
- * 导出用的版面是精简版：只保留页头、关键指标、分位矩阵与点评。
- * 各阶段明细在网页里是折叠块，截进静态图片只会变成一排点不开的空条。
+ * 导出的内容与网页一致，但各阶段明细一律摊开：网页里那几块是折叠的，
+ * 点一下就展开，静态图片点不动，收着等于没有。
  */
 
 export interface ImageOptions {
@@ -41,7 +41,7 @@ export async function renderImage(
   const profile = join(workspace, "profile");
 
   try {
-    writeFileSync(page, renderHtml(board, host, { compact: true }).replace("</body>", `${MEASURE}</body>`), "utf8");
+    writeFileSync(page, renderHtml(board, host, { forImage: true }).replace("</body>", `${MEASURE}</body>`), "utf8");
 
     const url = fileUrl(page);
     const base = [

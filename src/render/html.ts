@@ -10,22 +10,20 @@ import { bandOf, dateOf, duration, num, signedPercent } from "./format.ts";
  * 版面以分位矩阵开头。同样一组数字，排成五张互不相干的明细表，和排成一张
  * 玩家乘阶段的矩阵，读出来的东西完全不同：矩阵里一行横着看是某人哪一段塌了，
  * 一列竖着看是全队在哪一段集体吃力，都不需要来回翻。
- * 明细表照旧提供，但收进折叠块，要核对时再展开。
+ * 明细表照旧提供，但收进折叠块，要核对时再展开；导出图片时一律摊开。
  */
 export interface HtmlOptions {
   /**
-   * 精简版，供导出图片使用：去掉各阶段明细与未计分阶段那几个折叠块。
-   * 折叠块在网页里点得开，截进静态图片只会变成一排点不开的空条。
+   * 为导出图片而渲染：各阶段明细与未计分阶段一律摊开。
+   * 网页里这几块是折叠的，点一下就展开；静态图片点不动，收着等于没有。
    */
-  readonly compact?: boolean;
+  readonly forImage?: boolean;
 }
 
 export function renderHtml(board: Scoreboard, host: string, options: HtmlOptions = {}): string {
   const title = `${board.report.zoneName || board.report.title} 阶段评分`;
   const phases = phaseColumns(board);
-  const details = options.compact
-    ? ""
-    : `${phases.map((phase) => phaseSection(board, phase)).join("\n")}\n${truncatedSection(board)}`;
+  const open = options.forImage === true;
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -41,8 +39,9 @@ ${header(board, host)}
 ${overview(board)}
 ${matrix(board, phases)}
 ${insightSection(board)}
-${details}
-${footer(options.compact === true)}
+${phases.map((phase) => phaseSection(board, phase, open)).join("\n")}
+${truncatedSection(board, open)}
+${footer(open)}
 </main>
 </body>
 </html>
@@ -245,7 +244,7 @@ ${insights
   </section>`;
 }
 
-function phaseSection(board: Scoreboard, column: PhaseColumn): string {
+function phaseSection(board: Scoreboard, column: PhaseColumn, open: boolean): string {
   const rows = board.players
     .map((player) => ({ player, phase: player.phases.find((item) => item.phaseIndex === column.index) }))
     .filter((row) => row.phase !== undefined)
@@ -254,8 +253,10 @@ function phaseSection(board: Scoreboard, column: PhaseColumn): string {
   const sample = rows[0]?.phase;
   if (!sample) return "";
 
-  return `  <details class="phase">
-    <summary><span class="summary-name">${escape(column.full)}</span><span class="muted small">平均 ${escape(duration(sample.averageDurationMs))} · ${sample.pulls} 次记录</span></summary>
+  const caption = `${escape(column.full)}`;
+  const meta = `平均 ${escape(duration(sample.averageDurationMs))} · ${sample.pulls} 次记录`;
+
+  return `  ${block(open, caption, meta)}
     <div class="scroll">
       <table>
         <thead><tr><th>玩家</th><th>职业</th><th class="n">${escape(board.metricLabel)}</th><th class="n">最佳</th><th class="n">最差</th><th class="n">官方中位</th><th class="n">相对中位</th><th class="n">分位</th><th class="n">线性</th><th class="n">官方样本</th><th class="track-head">在官方分布中的位置</th></tr></thead>
@@ -281,14 +282,13 @@ ${rows
         </tbody>
       </table>
     </div>
-  </details>`;
+  ${close(open)}`;
 }
 
-function truncatedSection(board: Scoreboard): string {
+function truncatedSection(board: Scoreboard, open: boolean): string {
   if (board.truncated.length === 0) return "";
 
-  return `  <details class="phase">
-    <summary><span class="summary-name">未计分的阶段</span><span class="muted small">${board.truncated.length} 处，被团灭截断</span></summary>
+  return `  ${block(open, "未计分的阶段", `${board.truncated.length} 处，被团灭截断`)}
     <table>
       <thead><tr><th class="n">pull</th><th>阶段</th><th class="n">时长</th></tr></thead>
       <tbody>
@@ -300,14 +300,32 @@ ${board.truncated
   .join("\n")}
       </tbody>
     </table>
-  </details>`;
+  ${close(open)}`;
 }
 
-function footer(compact: boolean): string {
+/**
+ * 明细块的外壳。
+ *
+ * 网页里用折叠块，默认收起，需要核对时点开；导出图片时换成普通的区块，
+ * 因为静态图片点不动，收着的内容等于没有。
+ */
+function block(open: boolean, name: string, meta: string): string {
+  return open
+    ? `<section class="phase open">
+    <div class="phase-head"><span class="summary-name">${name}</span><span class="muted small">${meta}</span></div>`
+    : `<details class="phase">
+    <summary><span class="summary-name">${name}</span><span class="muted small">${meta}</span></summary>`;
+}
+
+function close(open: boolean): string {
+  return open ? "</section>" : "</details>";
+}
+
+function footer(open: boolean): string {
   return `  <footer>
     <p>分位来自 FF Logs 官方副本统计的同阶段同职业分布，九个锚点之间线性插值；线性分为 100 × (实测 − 最低) ÷ (最高 − 最低)。</p>
     <p>被团灭截断的阶段与官方通关数据不可比，官方样本少于 30 条的阶段分布不成立，两者都不计分。</p>${
-      compact ? "\n    <p>逐阶段明细与每把原始值见同名的 HTML 与 CSV。</p>" : ""
+      open ? "\n    <p>每一把的原始数值见同名的明细 CSV。</p>" : ""
     }
   </footer>`;
 }
@@ -400,6 +418,8 @@ tbody tr:hover{background:var(--panel)}
 .phase summary::before{content:"\\25B8";color:var(--muted);transition:transform .15s}
 .phase[open] summary::before{transform:rotate(90deg)}
 .phase summary:hover{background:#1c212b}
+.phase.open{margin-top:22px}
+.phase-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:12px 16px}
 .summary-name{font-weight:600}
 .phase table{margin:0}
 .phase .scroll{margin:0;padding:0 4px 8px}
