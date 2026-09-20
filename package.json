@@ -1,9 +1,9 @@
 {
-  "name": "fflogs-phase-score",
+  "name": "autopsy",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "依据 FF Logs 官方阶段统计，对战斗报告中的每名玩家逐阶段评分",
+  "description": "验尸官：团灭之后把 FF Logs 日志逐 P 剖开，对着官方数据找出是哪一段、哪个人出了问题",
   "engines": {
     "node": ">=23.6"
   },
@@ -12,5 +12,8 @@
     "baseline": "node src/main.ts baseline",
     "test": "node --test src/",
     "typecheck": "tsc --noEmit"
+  },
+  "bin": {
+    "autopsy": "src/main.ts"
   }
 }

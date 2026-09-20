@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadConfig, ROOT } from "./core/config.ts";
@@ -17,10 +18,14 @@ import { renderImages } from "./render/image.ts";
 import { renderMarkdown } from "./render/markdown.ts";
 
 const USAGE = `
+验尸官 — 团灭之后把日志逐 P 剖开，看看是哪一段、哪个人出了问题
+
 用法
-  node src/main.ts score <报告链接或代码> [选项]
-  node src/main.ts baseline --zone <id> --boss <id> [选项]
-  node src/main.ts cache clear
+  autopsy score <报告链接或代码> [选项]
+  autopsy baseline --zone <id> --boss <id> [选项]
+  autopsy cache clear
+
+没有 npm link 过就写全：node src/main.ts score <报告链接或代码>
 
 选项
   --metric <rdps|adps|ndps|cdps|hps>  评分口径，默认 rdps
@@ -73,7 +78,7 @@ async function main(argv: readonly string[]): Promise<void> {
         runCache(rest);
         return;
       default:
-        fail(`未知命令：${command}`, "运行 node src/main.ts --help 查看用法。");
+        fail(`未知命令：${command}`, "运行 autopsy --help 查看用法。");
     }
   } catch (error) {
     if (error instanceof UserError) {
@@ -89,7 +94,7 @@ async function main(argv: readonly string[]): Promise<void> {
 async function runScore(argv: readonly string[]): Promise<void> {
   const positional = argv.filter((item) => !item.startsWith("--"));
   const target = positional[0];
-  if (!target) fail("请给出报告链接或代码。", "例如 node src/main.ts score https://cn.fflogs.com/reports/xxxxxxxx");
+  if (!target) fail("请给出报告链接或代码。", "例如 autopsy score https://cn.fflogs.com/reports/xxxxxxxx");
 
   const options = parseOptions(argv);
   const config = loadConfig();

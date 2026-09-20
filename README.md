@@ -1,6 +1,8 @@
-# 谁是发狂王
+# 验尸官 · autopsy
 
-把一份 FF Logs 战斗报告按 P 拆开，再拿每名玩家的成绩去比官方统计里同职业、同一个 P 的记录，
+团灭之后把 FF Logs 日志逐 P 剖开，对着官方数据找出是哪一段、哪个人出了问题。
+
+具体做的事：把报告按 P 拆开，再拿每名玩家的成绩去比官方统计里同职业、同一个 P 的记录，
 算出他在这一段里究竟排在什么位置。
 
 开荒期的日志几乎全是团灭，没有通关排名可看，整场 DPS 也没有意义——
@@ -43,6 +45,13 @@ node src/main.ts score gY4MwRdjFCzNhnX3 --format console,html,markdown,csv,image
 node src/main.ts score gY4MwRdjFCzNhnX3 --phase 3 --aggregate best
 node src/main.ts baseline --zone 59 --boss 1076
 node src/main.ts cache clear
+```
+
+`npm link` 一次之后就能直接敲 `autopsy`：
+
+```bash
+npm link
+autopsy score https://cn.fflogs.com/reports/gY4MwRdjFCzNhnX3
 ```
 
 | 选项 | 说明 |
