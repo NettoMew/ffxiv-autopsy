@@ -46,6 +46,7 @@ function player(name: string, phases: PhaseScore[]): PlayerScore {
     display: name,
     label: "贤者",
     phases,
+    overall: null,
     percentile: 50,
     linear: 50,
     strongest: sorted[sorted.length - 1] ?? null,

@@ -1,4 +1,4 @@
-import { METRICS, type Baseline, type JobCurve, type JobKey, type Metric, type PhaseWindow, type Report } from "../core/types.ts";
+import { METRICS, OVERALL, type Baseline, type JobCurve, type JobKey, type Metric, type PhaseWindow, type Report } from "../core/types.ts";
 import type { FfLogsApi } from "../net/fflogs.ts";
 import { curveFor, linearOf, percentileOf, quantile } from "./baseline.ts";
 import { perSecond } from "./metrics.ts";
@@ -46,8 +46,15 @@ export interface PlayerScore {
   readonly label: string;
   /** 输出里用的名字。匿名模式下是职业名，否则就是角色名。 */
   readonly display: string;
+  /** 各个 P 的成绩，不含整场。 */
   readonly phases: readonly PhaseScore[];
-  /** 按阶段时长加权的分位总分。 */
+  /**
+   * 通关那把的整场成绩，没通关就是空。
+   *
+   * 不并进逐 P 的总分里：整场本来就是各 P 之和，混在一起等于把同一份成绩数了两遍。
+   */
+  readonly overall: PhaseScore | null;
+  /** 按各 P 时长加权的百分位总分。 */
   readonly percentile: number | null;
   readonly linear: number | null;
   readonly strongest: PhaseScore | null;
@@ -183,7 +190,9 @@ export function buildScoreboard(
       });
     }
 
-    const rated = scored.filter((phase) => phase.percentile !== null);
+    const overall = scored.find((phase) => phase.phaseIndex === OVERALL) ?? null;
+    const perPhase = scored.filter((phase) => phase.phaseIndex !== OVERALL);
+    const rated = perPhase.filter((phase) => phase.percentile !== null);
     const weight = rated.reduce((sum, phase) => sum + phase.averageDurationMs, 0);
 
     players.push({
@@ -191,7 +200,8 @@ export function buildScoreboard(
       job,
       display: player,
       label: scored.find((phase) => phase.curve)?.curve?.label ?? job,
-      phases: scored,
+      phases: perPhase,
+      overall,
       percentile: weight > 0 ? weighted(rated, (phase) => phase.percentile ?? 0) : null,
       linear: weight > 0 ? weighted(rated, (phase) => phase.linear ?? 0) : null,
       strongest: pick(rated, (a, b) => (a.percentile ?? 0) >= (b.percentile ?? 0)),

@@ -1,6 +1,6 @@
 import type { Config } from "../core/config.ts";
 import { fail } from "../core/errors.ts";
-import { METRICS, type JobCurve, type JobKey, type Metric, type Quantile, type Window } from "../core/types.ts";
+import { METRICS, type JobCurve, type JobKey, type Metric, type Quantile } from "../core/types.ts";
 import { Cache } from "./cache.ts";
 import { HttpClient } from "./http.ts";
 import { parseBars, parseDefaults, parseSpreads, type ZoneDefaults } from "./statistics-page.ts";
@@ -20,7 +20,8 @@ export interface CurveRequest {
   readonly zoneId: number;
   readonly encounterId: number;
   readonly metric: Metric;
-  readonly window: Window;
+  /** 取样窗口，单位天。 */
+  readonly window: number;
   readonly phase: number;
 }
 

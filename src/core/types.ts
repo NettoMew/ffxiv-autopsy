@@ -37,14 +37,17 @@ export function isMetric(value: string): value is Metric {
   return Object.hasOwn(METRICS, value);
 }
 
-/** 统计页的取样窗口。 */
-export type Window = 14 | 42 | 84;
-
-export const WINDOW_LABELS: Readonly<Record<Window, string>> = {
-  14: "2 周",
-  42: "6 周",
-  84: "12 周",
-};
+/**
+ * 统计页的取样窗口，单位是天。
+ *
+ * 不能写死。老副本给的是 14/42/84（2 周到 12 周），而新副本例如光暗未来
+ * 只给 1/7/14（一天到两周）——拿 84 去问它，返回的是一张空表。
+ * 有哪几档、默认哪一档，都要从页面自己读。
+ */
+export interface WindowChoice {
+  readonly days: number;
+  readonly label: string;
+}
 
 /** 分位曲线上的一个点。q 为 0 表示最低值，100 表示最高值。 */
 export interface Quantile {
@@ -69,13 +72,18 @@ export interface Baseline {
   readonly encounterId: number;
   readonly metric: Metric;
   readonly partition: number;
-  readonly window: Window;
+  readonly window: number;
+  /** 官方页面对这个窗口的叫法，例如「2 周范围」。 */
+  readonly windowLabel: string;
   readonly difficulty: number;
   readonly size: number;
   readonly fetchedAt: string;
   /** 键为阶段索引的字符串形式，与报告中的 phase id 一致。 */
   readonly phases: Record<string, Record<JobKey, JobCurve>>;
 }
+
+/** 整场的阶段编号。统计页用 0 表示整场，本程序沿用同一套编号。 */
+export const OVERALL = 0;
 
 /** 一次 pull 中被切分出来的一个阶段窗口。 */
 export interface PhaseWindow {

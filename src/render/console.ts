@@ -1,4 +1,3 @@
-import { WINDOW_LABELS } from "../core/types.ts";
 import { displayWidth, heading, padEnd, style, table } from "../core/terminal.ts";
 import { quantile } from "../domain/baseline.ts";
 import { buildInsights, type Severity } from "../domain/insights.ts";
@@ -14,6 +13,7 @@ const LABELS: Readonly<Record<Severity, string>> = {
 
 export function renderConsole(board: Scoreboard, host: string): string {
   const lines: string[] = [];
+  const cleared = board.players.some((player) => player.overall !== null);
 
   lines.push(
     "",
@@ -32,7 +32,7 @@ export function renderConsole(board: Scoreboard, host: string): string {
     style.gray(
       [
         `按 ${board.metricLabel} 算`,
-        `比官方最近 ${WINDOW_LABELS[board.baseline.window]}`,
+        `比官方最近 ${board.baseline.windowLabel}`,
         `分区 ${board.baseline.partition}`,
         `一个 P 打多把时取${board.aggregate === "best" ? "最好的一把" : "中位数"}`,
       ].join("   "),
@@ -45,6 +45,7 @@ export function renderConsole(board: Scoreboard, host: string): string {
       [
         { header: "玩家" },
         ...(board.anonymous ? [] : [{ header: "职业" }]),
+        ...(cleared ? [{ header: "整场", align: "right" } as const] : []),
         { header: "百分位", align: "right" },
         { header: "区间分", align: "right" },
         { header: "算分 P", align: "right" },
@@ -56,6 +57,7 @@ export function renderConsole(board: Scoreboard, host: string): string {
         return [
           player.display,
           ...(board.anonymous ? [] : [player.label]),
+          ...(cleared ? [paintPercentile(player.overall?.percentile ?? null)] : []),
           paintPercentile(player.percentile),
           player.linear === null ? style.gray("—") : player.linear.toFixed(1),
           `${rated.length} / ${player.phases.length}`,
@@ -64,7 +66,11 @@ export function renderConsole(board: Scoreboard, host: string): string {
         ];
       }),
     ),
-    style.gray("算分 P = 算进总分的 P / 有数据的 P。被团灭打断、或者官方样本太少的 P 不算分。"),
+    style.gray(
+      cleared
+        ? "整场 = 通关那把的整场成绩；百分位 = 各个 P 按时长加权。算分 P = 算进总分的 P / 有数据的 P。"
+        : "算分 P = 算进总分的 P / 有数据的 P。被团灭打断、或者官方样本太少的 P 不算分。",
+    ),
   );
 
   const insights = buildInsights(board);

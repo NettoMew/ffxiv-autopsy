@@ -1,4 +1,3 @@
-import { WINDOW_LABELS } from "../core/types.ts";
 import { quantile } from "../domain/baseline.ts";
 import { buildInsights, type Severity } from "../domain/insights.ts";
 import type { Scoreboard } from "../domain/scoring.ts";
@@ -13,6 +12,9 @@ const MARKS: Readonly<Record<Severity, string>> = {
 
 export function renderMarkdown(board: Scoreboard, host: string): string {
   const lines: string[] = [];
+  const cleared = board.players.some((player) => player.overall !== null);
+  const head = cleared ? "| 整场 " : "";
+  const rule = cleared ? "| ---: " : "";
 
   lines.push(
     `# ${board.report.zoneName || (board.anonymous ? "战斗报告" : board.report.title)} 逐 P 评分`,
@@ -25,15 +27,13 @@ export function renderMarkdown(board: Scoreboard, host: string): string {
           `- 报告：https://${host}/reports/${board.report.code}`,
         ]),
     `- 时间：${dateOf(board.report.start)}`,
-    `- 口径：${board.metricLabel}，比的是官方最近 ${WINDOW_LABELS[board.baseline.window]}、分区 ${board.baseline.partition} 的数据`,
+    `- 口径：${board.metricLabel}，比的是官方最近 ${board.baseline.windowLabel}、分区 ${board.baseline.partition} 的数据`,
     `- 同一个 P 打了多把时，取${board.aggregate === "best" ? "最好的一把" : "中位数"}`,
     "",
     "## 玩家总评",
     "",
-    board.anonymous
-      ? "| 玩家 | 百分位 | 区间分 | 算分 P | 最好的 P | 最差的 P |"
-      : "| 玩家 | 职业 | 百分位 | 区间分 | 算分 P | 最好的 P | 最差的 P |",
-    board.anonymous ? "| --- | ---: | ---: | ---: | --- | --- |" : "| --- | --- | ---: | ---: | ---: | --- | --- |",
+    (board.anonymous ? "| 玩家 " : "| 玩家 | 职业 ") + head + "| 百分位 | 区间分 | 算分 P | 最好的 P | 最差的 P |",
+    (board.anonymous ? "| --- " : "| --- | --- ") + rule + "| ---: | ---: | ---: | --- | --- |",
   );
 
   for (const player of board.players) {
@@ -42,6 +42,7 @@ export function renderMarkdown(board: Scoreboard, host: string): string {
       row([
         player.display,
         ...(board.anonymous ? [] : [player.label]),
+        ...(cleared ? [player.overall?.percentile?.toFixed(1) ?? "—"] : []),
         player.percentile === null ? "—" : player.percentile.toFixed(1),
         player.linear === null ? "—" : player.linear.toFixed(1),
         `${rated.length} / ${player.phases.length}`,

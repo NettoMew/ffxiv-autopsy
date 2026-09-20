@@ -123,6 +123,9 @@ function playerInsights(player: PlayerScore): Insight[] {
   const candidates: Insight[] = [];
   const weakest = player.weakest;
 
+  // 通关了的话，整场成绩才是大家最认的那个数，摆在最前面。
+  const cleared = clearInsight(player);
+
   if (weakest) {
     const curve = weakest.curve;
     const floor = curve ? quantile(curve, 0) : null;
@@ -202,7 +205,37 @@ function playerInsights(player: PlayerScore): Insight[] {
   // 最薄弱那一条永远保留，它是这份点评的主干；其余按严重程度补一条。
   const [primary, ...rest] = candidates;
   const extra = rank(rest)[0];
-  return extra ? [primary as Insight, extra] : primary ? [primary] : [];
+  const tail = extra && primary ? [primary, extra] : primary ? [primary] : [];
+
+  return cleared ? [cleared, ...tail] : tail;
+}
+
+/** 通关那把的整场成绩。没通关就没有这一条。 */
+function clearInsight(player: PlayerScore): Insight | null {
+  const overall = player.overall;
+  if (!overall) return null;
+
+  const floor = overall.curve ? quantile(overall.curve, 0) : null;
+  const times = overall.pulls > 1 ? `${overall.pulls} 次通关取中位` : "通关那把";
+
+  if (floor !== null && overall.value < floor) {
+    return {
+      severity: "critical",
+      subject: player.display,
+      text: `${times}整场 ${round(overall.value)}，比官方最低值 ${round(floor)} 还低，同职业没有一条公开的通关记录比这更差。`,
+    };
+  }
+
+  if (overall.percentile === null) {
+    return { severity: "note", subject: player.display, text: `${times}整场 ${round(overall.value)}，官方样本太少，算不出排名。` };
+  }
+
+  const severity: Severity = overall.percentile >= 75 ? "good" : overall.percentile < 25 ? "warning" : "note";
+  return {
+    severity,
+    subject: player.display,
+    text: `${times}整场 ${round(overall.value)}，${overall.percentile.toFixed(1)} 分，相比官方中位 ${signed(overall.vsMedian ?? 0)}。`,
+  };
 }
 
 const ORDER: Readonly<Record<Severity, number>> = { critical: 0, warning: 1, note: 2, good: 3 };

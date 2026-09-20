@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { loadConfig, ROOT } from "./core/config.ts";
 import { fail, UserError } from "./core/errors.ts";
 import { style } from "./core/terminal.ts";
-import { isMetric, WINDOW_LABELS, type Metric, type Report, type Window } from "./core/types.ts";
+import { isMetric, type Metric, type Report } from "./core/types.ts";
 import { BASELINE_DIR, ensureBaseline } from "./domain/baseline.ts";
 import { buildScoreboard, collect, neededPhases, type Aggregate, type Scoreboard } from "./domain/scoring.ts";
 import { CACHE_DIR, clearCache } from "./net/cache.ts";
@@ -32,7 +32,7 @@ const USAGE = `
   --fight <id>                        只评某一把，默认全部
   --phase <n>                         只评某个 P，默认全部
   --aggregate <median|best>           同一个 P 打了多把时怎么取值，默认 median
-  --window <2|6|12>                   比对官方最近多少周的数据，默认 12
+  --window <天数>                     比对官方最近多少天的数据，默认随副本页面
   --format <console,html,markdown,csv,image>  输出形式，可用逗号叠加，默认 console
   --out <目录>                        文件输出目录，默认 out
   --width <像素>                      导出图片的宽度，默认 1300
@@ -48,7 +48,7 @@ interface Options {
   readonly fightId: number | undefined;
   readonly phaseIndex: number | undefined;
   readonly aggregate: Aggregate;
-  readonly window: Window;
+  readonly window: number | null;
   readonly formats: readonly string[];
   readonly out: string;
   readonly width: number;
@@ -132,7 +132,7 @@ async function score(
     fail("这份报告里没有一个 P 是完整打完的，没法评分。", "被团灭打断的 P 和官方通关数据没法比。");
   }
 
-  note(`比对官方数据：版本分区自动识别，最近 ${WINDOW_LABELS[options.window]}，共 ${phases.length} 个 P`);
+  note(`比对官方数据：版本分区与取样窗口自动识别，共 ${phases.length} 个 P`);
   const baseline = await ensureBaseline(
     statistics,
     { zoneId, encounterId, metric: options.metric, window: options.window },
@@ -256,9 +256,9 @@ function parseOptions(argv: readonly string[]): Options {
   const aggregate = valueOf(argv, "--aggregate") ?? "median";
   if (aggregate !== "median" && aggregate !== "best") fail(`不认识的取值方式：${aggregate}`);
 
-  const weeks = Number(valueOf(argv, "--window") ?? 12);
-  const window: Window =
-    weeks === 2 ? 14 : weeks === 6 ? 42 : weeks === 12 ? 84 : fail(`窗口只支持 2、6、12 周，收到 ${weeks}`);
+  // 各副本提供的取样窗口不一样，能不能用要等读到页面才知道，这里只做基本校验。
+  const window = numberOf(argv, "--window") ?? null;
+  if (window !== null && (window < 1 || window > 400)) fail(`取样窗口需在 1 到 400 天之间，收到 ${window}`);
 
   const formats = (valueOf(argv, "--format") ?? "console")
     .split(",")

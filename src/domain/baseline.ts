@@ -1,7 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { ROOT } from "../core/config.ts";
-import type { Baseline, JobCurve, JobKey, Metric, Window } from "../core/types.ts";
+import { fail } from "../core/errors.ts";
+import type { Baseline, JobCurve, JobKey, Metric, WindowChoice } from "../core/types.ts";
 import type { StatisticsSource, ZoneDefaults } from "../net/statistics.ts";
 
 const DIR = resolve(ROOT, "data", "baseline");
@@ -10,7 +11,8 @@ export interface BaselineKey {
   readonly zoneId: number;
   readonly encounterId: number;
   readonly metric: Metric;
-  readonly window: Window;
+  /** 取样窗口天数；给 null 就用副本页面自己的默认值。 */
+  readonly window: number | null;
 }
 
 /**
@@ -24,7 +26,9 @@ export async function ensureBaseline(
   onFetch?: (phase: number) => void,
 ): Promise<Baseline> {
   const defaults = await source.defaults(key.zoneId, key.encounterId);
-  const existing = read(key, defaults.partition);
+  const choice = resolveWindow(defaults, key.window);
+  const resolved: Resolved = { ...key, window: choice.days };
+  const existing = read(resolved, defaults.partition);
 
   const collected: Record<string, Record<JobKey, JobCurve>> = { ...(existing?.phases ?? {}) };
   let changed = false;
@@ -32,7 +36,7 @@ export async function ensureBaseline(
   for (const phase of [...new Set(phases)].sort((a, b) => a - b)) {
     if (collected[String(phase)]) continue;
     onFetch?.(phase);
-    collected[String(phase)] = await source.curves({ ...key, phase }, defaults);
+    collected[String(phase)] = await source.curves({ ...resolved, phase }, defaults);
     changed = true;
   }
 
@@ -41,7 +45,8 @@ export async function ensureBaseline(
     encounterId: key.encounterId,
     metric: key.metric,
     partition: defaults.partition,
-    window: key.window,
+    window: choice.days,
+    windowLabel: choice.label,
     difficulty: defaults.difficulty,
     size: defaults.size,
     fetchedAt: changed ? new Date().toISOString() : (existing?.fetchedAt ?? new Date().toISOString()),
@@ -105,11 +110,37 @@ function clamp(value: number, low: number, high: number): number {
   return Math.min(high, Math.max(low, value));
 }
 
-function path(key: BaselineKey, partition: number): string {
+type Resolved = Omit<BaselineKey, "window"> & { readonly window: number };
+
+/**
+ * 选一个这个副本真的提供的取样窗口。
+ *
+ * 各副本给的档位不一样：老本是 2 周到 12 周，光暗未来这种新本只有一天到两周。
+ * 拿一个它不提供的天数去问，返回的是一张空表而不是报错，所以宁可在这里挡下来。
+ */
+function resolveWindow(defaults: ZoneDefaults, wanted: number | null): WindowChoice {
+  const fallback: WindowChoice = { days: defaults.sample, label: `${defaults.sample} 天` };
+
+  if (wanted === null) {
+    return defaults.samples.find((item) => item.days === defaults.sample) ?? defaults.samples[0] ?? fallback;
+  }
+
+  const match = defaults.samples.find((item) => item.days === wanted);
+  if (!match) {
+    fail(
+      `这个副本没有 ${wanted} 天的取样窗口。`,
+      `可选：${defaults.samples.map((item) => `${item.days}（${item.label}）`).join("、")}`,
+    );
+  }
+
+  return match;
+}
+
+function path(key: Resolved, partition: number): string {
   return join(DIR, `${key.zoneId}-${key.encounterId}-${key.metric}-p${partition}-w${key.window}.json`);
 }
 
-function read(key: BaselineKey, partition: number): Baseline | null {
+function read(key: Resolved, partition: number): Baseline | null {
   try {
     return JSON.parse(readFileSync(path(key, partition), "utf8")) as Baseline;
   } catch {

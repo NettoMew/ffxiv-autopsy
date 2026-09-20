@@ -1,4 +1,3 @@
-import { WINDOW_LABELS } from "../core/types.ts";
 import { quantile } from "../domain/baseline.ts";
 import { buildInsights, wipePhases, type Severity } from "../domain/insights.ts";
 import type { PhaseScore, PlayerScore, Scoreboard } from "../domain/scoring.ts";
@@ -38,6 +37,7 @@ export function renderHtml(board: Scoreboard, host: string, options: HtmlOptions
 ${header(board, host)}
 ${overview(board)}
 ${matrix(board, phases)}
+${overallSection(board, open)}
 ${insightSection(board)}
 ${phases.map((phase) => phaseSection(board, phase, open)).join("\n")}
 ${truncatedSection(board, open)}
@@ -62,6 +62,7 @@ interface PhaseColumn {
  */
 export type Card =
   | { readonly kind: "overview" }
+  | { readonly kind: "overall" }
   | { readonly kind: "insights" }
   | { readonly kind: "phase"; readonly index: number }
   | { readonly kind: "truncated" };
@@ -76,6 +77,10 @@ export interface CardEntry {
 
 export function listCards(board: Scoreboard): CardEntry[] {
   const cards: CardEntry[] = [{ card: { kind: "overview" }, title: "总览", slug: "总览" }];
+
+  if (board.players.some((player) => player.overall !== null)) {
+    cards.push({ card: { kind: "overall" }, title: "整场（通关）", slug: "整场" });
+  }
 
   if (buildInsights(board).length > 0) cards.push({ card: { kind: "insights" }, title: "点评", slug: "点评" });
 
@@ -93,15 +98,7 @@ export function listCards(board: Scoreboard): CardEntry[] {
 
 /** 把一块单独渲染成一个完整页面，供截图使用。 */
 export function renderCard(board: Scoreboard, host: string, card: Card): string {
-  const phases = phaseColumns(board);
-  const body =
-    card.kind === "overview"
-      ? `${header(board, host)}\n${overview(board)}\n${matrix(board, phases)}`
-      : card.kind === "insights"
-        ? `${caption(board)}\n${insightSection(board)}`
-        : card.kind === "truncated"
-          ? `${caption(board)}\n${truncatedSection(board, true)}`
-          : `${caption(board)}\n${phaseSection(board, phases.find((phase) => phase.index === card.index) ?? phases[0]!, true)}`;
+  const body = cardBody(board, host, card);
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -119,10 +116,28 @@ ${body}
 `;
 }
 
+function cardBody(board: Scoreboard, host: string, card: Card): string {
+  switch (card.kind) {
+    case "overview":
+      return `${header(board, host)}\n${overview(board)}\n${matrix(board, phaseColumns(board))}`;
+    case "overall":
+      return `${caption(board)}\n${overallSection(board, true)}`;
+    case "insights":
+      return `${caption(board)}\n${insightSection(board)}`;
+    case "truncated":
+      return `${caption(board)}\n${truncatedSection(board, true)}`;
+    default: {
+      const phases = phaseColumns(board);
+      const column = phases.find((phase) => phase.index === card.index) ?? phases[0];
+      return column ? `${caption(board)}\n${phaseSection(board, column, true)}` : caption(board);
+    }
+  }
+}
+
 /** 单张图片也要认得出自己出自哪份日志。 */
 function caption(board: Scoreboard): string {
   const where = board.report.zoneName || (board.anonymous ? "战斗报告" : board.report.title);
-  return `  <p class="caption">${escape(where)} · ${escape(dateOf(board.report.start))} · 按 ${escape(board.metricLabel)} 算 · 比官方最近 ${escape(WINDOW_LABELS[board.baseline.window])}</p>`;
+  return `  <p class="caption">${escape(where)} · ${escape(dateOf(board.report.start))} · 按 ${escape(board.metricLabel)} 算 · 比官方最近 ${escape(board.baseline.windowLabel)}</p>`;
 }
 
 /** 矩阵的列。长长的英文阶段名在表头里放不下，取冒号前的那一段，全名留在悬停提示里。 */
@@ -161,7 +176,7 @@ function header(board: Scoreboard, host: string): string {
 ${origin}
     <p class="subtitle">
 ${link} 按 ${escape(board.metricLabel)} 算
-      · 比官方最近 ${escape(WINDOW_LABELS[board.baseline.window])}
+      · 比官方最近 ${escape(board.baseline.windowLabel)}
       · 分区 ${board.baseline.partition}
       · 一个 P 打多把时取${board.aggregate === "best" ? "最好的一把" : "中位数"}
     </p>
@@ -209,6 +224,8 @@ function matrix(board: Scoreboard, all: readonly PhaseColumn[]): string {
   const dropped = all.filter((phase) => !isScored(board, phase.index));
   if (phases.length === 0) return "";
 
+  const cleared = board.players.some((player) => player.overall !== null);
+
   const head = phases
     .map((phase) => `<th class="c" title="${escape(phase.full)}">${escape(phase.short)}</th>`)
     .join("");
@@ -217,9 +234,10 @@ function matrix(board: Scoreboard, all: readonly PhaseColumn[]): string {
     .map((player) => {
       const cells = phases.map((phase) => cell(player, phase)).join("");
       const job = board.anonymous ? "" : `          <td class="muted">${escape(player.label)}</td>\n`;
+      const overall = cleared ? `          <td class="c">${chip(player.overall)}</td>\n` : "";
       return `        <tr>
           <td class="name">${escape(player.display)}</td>
-${job}${cells}
+${job}${overall}${cells}
           <td class="c total">${score(player.percentile)}</td>
           <td class="c muted small">${rated(player)}</td>
         </tr>`;
@@ -231,7 +249,7 @@ ${job}${cells}
     <p class="subtitle">横着看是某个人在哪个 P 掉了，竖着看是全队卡在哪个 P。鼠标停在格子上能看到原始数值。</p>
     <div class="scroll">
       <table class="matrix">
-        <thead><tr><th>玩家</th>${board.anonymous ? "" : "<th>职业</th>"}${head}<th class="c">总评</th><th class="c">算分 P</th></tr></thead>
+        <thead><tr><th>玩家</th>${board.anonymous ? "" : "<th>职业</th>"}${cleared ? '<th class="c">整场</th>' : ""}${head}<th class="c">总评</th><th class="c">算分 P</th></tr></thead>
         <tbody>
 ${body}
         </tbody>
@@ -244,16 +262,21 @@ ${legend()}
 
 function cell(player: PlayerScore, column: PhaseColumn): string {
   const phase = player.phases.find((item) => item.phaseIndex === column.index);
-  if (!phase) return `          <td class="c empty">·</td>`;
+  return `          <td class="c${phase?.percentile === undefined || phase.percentile === null ? " empty" : ""}">${chip(phase ?? null, column.full)}</td>`;
+}
+
+/** 矩阵里的一个格子：颜色即分数，悬停给出原始数值。 */
+function chip(phase: PhaseScore | null, title = "整场"): string {
+  if (!phase) return "·";
 
   if (phase.percentile === null) {
     const why = phase.curve ? `官方样本只有 ${phase.curve.sampleSize} 条，不够算分` : "没有官方数据可比";
-    return `          <td class="c empty" title="${escape(why)}">样本不足</td>`;
+    return `<span title="${escape(why)}">样本不足</span>`;
   }
 
   const hex = bandOf(phase.percentile).hex;
   const tip = [
-    column.full,
+    title,
     `${num(phase.value)}（${phase.pulls} 把取${phase.pulls > 1 ? "中位" : "单把"}）`,
     phase.curve ? `官方中位 ${num(quantile(phase.curve, 50))}` : "",
     `相对中位 ${signedPercent(phase.vsMedian)}`,
@@ -262,7 +285,7 @@ function cell(player: PlayerScore, column: PhaseColumn): string {
     .filter(Boolean)
     .join("\n");
 
-  return `          <td class="c"><span class="chip" style="background:${hex}22;border-color:${hex}55;color:${hex}" title="${escape(tip)}">${phase.percentile.toFixed(0)}</span></td>`;
+  return `<span class="chip" style="background:${hex}22;border-color:${hex}55;color:${hex}" title="${escape(tip)}">${phase.percentile.toFixed(0)}</span>`;
 }
 
 function rated(player: PlayerScore): string {
@@ -331,12 +354,19 @@ function phaseSection(board: Scoreboard, column: PhaseColumn, open: boolean): st
   const sample = rows[0]?.phase;
   if (!sample) return "";
 
-  const caption = `${escape(column.full)}`;
-  const meta = `平均 ${escape(duration(sample.averageDurationMs))} · 打了 ${sample.pulls} 把`;
-
-  return `  ${block(open, caption, meta)}
+  return `  ${block(open, escape(column.full), `平均 ${escape(duration(sample.averageDurationMs))} · 打了 ${sample.pulls} 把`)}
     <div class="scroll">
-      <table>
+      ${scoreTable(board, rows)}
+    </div>
+  ${close(open)}`;
+}
+
+/** 逐 P 明细与整场明细共用同一张表。 */
+function scoreTable(
+  board: Scoreboard,
+  rows: readonly { player: PlayerScore; phase: PhaseScore | null | undefined }[],
+): string {
+  return `<table>
         <thead><tr><th>玩家</th>${board.anonymous ? "" : "<th>职业</th>"}<th class="n">${escape(board.metricLabel)}</th><th class="n">最好</th><th class="n">最差</th><th class="n">官方中位</th><th class="n">比中位</th><th class="n">百分位</th><th class="n">区间分</th><th class="n">样本数</th><th class="track-head">在官方分布里的位置</th></tr></thead>
         <tbody>
 ${rows
@@ -358,7 +388,27 @@ ${job}            <td class="n">${escape(num(phase.value))}</td>
   })
   .join("\n")}
         </tbody>
-      </table>
+      </table>`;
+}
+
+/**
+ * 通关那把的整场成绩。
+ *
+ * 逐 P 拆开是为了给团灭的日志一条公平的横轴；真通关了，整场那个数才是大家最认的，
+ * 所以单独列一块，摆在逐 P 明细之前。
+ */
+function overallSection(board: Scoreboard, open: boolean): string {
+  const rows = board.players
+    .map((player) => ({ player, phase: player.overall }))
+    .filter((row) => row.phase !== null)
+    .sort((a, b) => (b.phase?.percentile ?? -1) - (a.phase?.percentile ?? -1));
+
+  const sample = rows[0]?.phase;
+  if (!sample) return "";
+
+  return `  ${block(open, "整场（通关）", `平均 ${escape(duration(sample.averageDurationMs))} · 通关 ${sample.pulls} 次`)}
+    <div class="scroll">
+      ${scoreTable(board, rows)}
     </div>
   ${close(open)}`;
 }

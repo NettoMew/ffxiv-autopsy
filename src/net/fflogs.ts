@@ -97,7 +97,7 @@ export class FfLogsApi {
         end: fight.end_time,
         combatTime: fight.combatTime ?? fight.end_time - fight.start_time,
         kill: fight.kill === true,
-        phases: buildPhaseWindows(fight.phases ?? [], fight.end_time, fight.kill === true, names),
+        phases: buildPhaseWindows(fight.phases ?? [], fight.start_time, fight.end_time, fight.kill === true, names),
       }));
 
     if (fights.length === 0) fail(`报告 ${code} 里没有可评分的战斗。`);

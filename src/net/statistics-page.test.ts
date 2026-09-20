@@ -31,8 +31,12 @@ const BOXPLOT = `
 </tr>
 </tbody>
 </table>
+<a href="#" onload="setSample(84, this)">12 周范围</a>
+<a href="#" onload="setSample(42, this)">6 周范围</a>
+<a href="#" onload="setSample(14, this)">2 周范围</a>
 <script>
 var defaultPartition = 39;
+var defaultSample = 84;
 obj = { difficulty: 100, sizes: [] };
 obj.sizes.push(8);
 
@@ -82,8 +86,39 @@ if (useBars) {
 </script>
 `;
 
-test("读出页面自带的分区与难度", () => {
-  assert.deepEqual(parseDefaults(BOXPLOT), { partition: 39, difficulty: 100, size: 8 });
+test("读出页面自带的分区、难度与取样窗口", () => {
+  assert.deepEqual(parseDefaults(BOXPLOT), {
+    partition: 39,
+    difficulty: 100,
+    size: 8,
+    sample: 84,
+    samples: [
+      { days: 84, label: "12 周范围" },
+      { days: 42, label: "6 周范围" },
+      { days: 14, label: "2 周范围" },
+    ],
+  });
+});
+
+test("新副本只给短窗口，也要照实读出来", () => {
+  // 光暗未来这类新本没有 12 周档；写死 84 去问它，返回的是一张空表而不是报错。
+  const page = `
+<a href="#" onload="setSample(14, this)">2 周范围</a>
+<a href="#" onload="setSample(7, this)">1周范围</a>
+<a href="#" onload="setSample(1, this)">1日范围</a>
+<script>
+var defaultPartition = 27;
+var defaultSample = 14;
+obj = { difficulty: 100, sizes: [] };
+obj.sizes.push(8);
+</script>`;
+
+  const defaults = parseDefaults(page);
+  assert.equal(defaults?.sample, 14);
+  assert.deepEqual(
+    defaults?.samples.map((item) => item.days),
+    [14, 7, 1],
+  );
 });
 
 test("页面改版后读不出默认值时返回空", () => {

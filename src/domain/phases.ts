@@ -1,4 +1,4 @@
-import type { PhaseWindow } from "../core/types.ts";
+import { OVERALL, type PhaseWindow } from "../core/types.ts";
 
 interface RawPhase {
   readonly id: number;
@@ -15,11 +15,25 @@ interface RawPhase {
  */
 export function buildPhaseWindows(
   phases: readonly RawPhase[],
+  fightStart: number,
   fightEnd: number,
   kill: boolean,
   names: readonly string[],
 ): PhaseWindow[] {
   const windows: PhaseWindow[] = [];
+
+  // 通关的那把额外给一个整场窗口。统计页的 phase 0 就是整场，
+  // 通关成绩本来就是大家最认的那个数，只按 P 拆开反而把它丢了。
+  if (kill) {
+    windows.push({
+      index: OVERALL,
+      name: "整场",
+      start: fightStart,
+      end: fightEnd,
+      durationMs: fightEnd - fightStart,
+      complete: true,
+    });
+  }
 
   for (let index = 0; index < phases.length; index += 1) {
     const phase = phases[index];

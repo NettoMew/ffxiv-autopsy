@@ -1,4 +1,4 @@
-import type { JobKey } from "../core/types.ts";
+import type { JobKey, WindowChoice } from "../core/types.ts";
 
 /**
  * 统计页的解析。
@@ -18,6 +18,10 @@ export interface ZoneDefaults {
   readonly partition: number;
   readonly difficulty: number;
   readonly size: number;
+  /** 页面自己的默认取样窗口。 */
+  readonly sample: number;
+  /** 这个副本提供的全部取样窗口，按天数降序。 */
+  readonly samples: readonly WindowChoice[];
 }
 
 /** 1000 号数据集一次给出的五个分位、真最高值与记录数。 */
@@ -45,9 +49,27 @@ export function parseDefaults(html: string): ZoneDefaults | null {
   const partition = toNumber(/var defaultPartition = (\d+)/.exec(html)?.[1]);
   const difficulty = toNumber(/obj = \{ difficulty: (\d+), sizes: \[\] \}/.exec(html)?.[1]);
   const size = toNumber(/obj\.sizes\.push\((\d+)\)/.exec(html)?.[1]);
+  const sample = toNumber(/var defaultSample = (\d+)/.exec(html)?.[1]);
 
-  if (partition === null || difficulty === null || size === null) return null;
-  return { partition, difficulty, size };
+  if (partition === null || difficulty === null || size === null || sample === null) return null;
+
+  const seen = new Map<number, string>();
+  for (const match of html.matchAll(/setSample\((\d+), this\)">\s*([^<]{1,24}?)\s*</g)) {
+    const days = toNumber(match[1]);
+    if (days !== null && !seen.has(days)) seen.set(days, (match[2] ?? "").trim());
+  }
+
+  const samples = [...seen]
+    .map(([days, label]) => ({ days, label: label || `${days} 天` }))
+    .sort((a, b) => b.days - a.days);
+
+  return {
+    partition,
+    difficulty,
+    size,
+    sample,
+    samples: samples.length > 0 ? samples : [{ days: sample, label: `${sample} 天` }],
+  };
 }
 
 /**

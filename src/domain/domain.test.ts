@@ -15,6 +15,7 @@ test("阶段切分丢弃被跳过的阶段", () => {
       { id: 2, startTime: 1000 },
       { id: 3, startTime: 3000 },
     ],
+    1000,
     5000,
     true,
     NAMES,
@@ -22,9 +23,9 @@ test("阶段切分丢弃被跳过的阶段", () => {
 
   assert.deepEqual(
     windows.map((window) => window.index),
-    [2, 3],
+    [0, 2, 3],
   );
-  assert.equal(windows[0]?.durationMs, 2000);
+  assert.equal(windows[1]?.durationMs, 2000);
 });
 
 test("团灭时最后一个阶段被判为未完成", () => {
@@ -33,6 +34,7 @@ test("团灭时最后一个阶段被判为未完成", () => {
       { id: 2, startTime: 0 },
       { id: 3, startTime: 2000 },
     ],
+    0,
     2500,
     false,
     NAMES,
@@ -43,13 +45,30 @@ test("团灭时最后一个阶段被判为未完成", () => {
 });
 
 test("通关时最后一个阶段算完成", () => {
-  const kill = buildPhaseWindows([{ id: 2, startTime: 0 }], 2500, true, NAMES);
-  assert.equal(kill[0]?.complete, true);
+  const kill = buildPhaseWindows([{ id: 2, startTime: 0 }], 0, 2500, true, NAMES);
+  assert.equal(kill.at(-1)?.complete, true);
 });
 
 test("阶段名取自报告给出的名单", () => {
-  const windows = buildPhaseWindows([{ id: 3, startTime: 0 }], 1000, true, NAMES);
-  assert.equal(windows[0]?.name, "P3");
+  const windows = buildPhaseWindows([{ id: 3, startTime: 0 }], 0, 1000, true, NAMES);
+  assert.equal(windows.at(-1)?.name, "P3");
+});
+
+test("通关时额外切出整场窗口，团灭时没有", () => {
+  const kill = buildPhaseWindows([{ id: 2, startTime: 100 }], 100, 900, true, NAMES);
+  const overall = kill.find((window) => window.index === 0);
+
+  assert.ok(overall);
+  assert.equal(overall.name, "整场");
+  assert.equal(overall.start, 100);
+  assert.equal(overall.end, 900);
+  assert.equal(overall.durationMs, 800);
+
+  const wipe = buildPhaseWindows([{ id: 2, startTime: 100 }], 100, 900, false, NAMES);
+  assert.equal(
+    wipe.find((window) => window.index === 0),
+    undefined,
+  );
 });
 
 const CURVE: JobCurve = {
