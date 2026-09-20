@@ -38,7 +38,7 @@ export function renderHtml(board: Scoreboard, host: string): string {
   <section>
     <h2>玩家总评</h2>
     <table>
-      <thead><tr><th>玩家</th><th>职业</th><th class="n">分位</th><th class="n">线性</th><th>评级</th><th class="n">计分阶段</th><th>最强</th><th>最弱</th></tr></thead>
+      <thead><tr><th>玩家</th><th>职业</th><th class="n">分位</th><th class="n">线性</th><th class="n">计分阶段</th><th>最强</th><th>最弱</th></tr></thead>
       <tbody>
 ${board.players
   .map((player) => {
@@ -48,8 +48,7 @@ ${board.players
           <td>${escape(player.label)}</td>
           <td class="n">${score(player.percentile)}</td>
           <td class="n">${player.linear === null ? "—" : player.linear.toFixed(1)}</td>
-          <td>${player.percentile === null ? "—" : escape(bandOf(player.percentile).name)}</td>
-          <td class="n">${rated.length}</td>
+          <td class="n">${rated.length} / ${player.phases.length}</td>
           <td class="muted">${escape(player.strongest?.phaseName ?? "—")}</td>
           <td class="muted">${escape(player.weakest?.phaseName ?? "—")}</td>
         </tr>`;
@@ -57,6 +56,7 @@ ${board.players
   .join("\n")}
       </tbody>
     </table>
+    <p class="note">计分阶段 = 计入总分的阶段 / 有数据的阶段。被团灭截断或官方样本不足的阶段不计分。</p>
   </section>
 
 ${phaseIndices.map((index) => phaseSection(board, index)).join("\n")}
@@ -194,6 +194,7 @@ tbody tr:hover{background:var(--panel)}
 .muted{color:var(--muted)}
 .up{color:#5fd07a}
 .down{color:#e2706a}
+.note{margin:10px 0 0;color:var(--muted);font-size:12px}
 .track-head{width:200px}
 .track{position:relative;display:block;width:180px;height:10px;border-radius:5px;background:#232a35}
 .track .tick{position:absolute;top:1px;width:1px;height:8px;background:#3c4554}

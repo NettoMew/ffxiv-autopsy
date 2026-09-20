@@ -2,22 +2,22 @@ import { color, style } from "../core/terminal.ts";
 
 /**
  * 分位配色沿用 FF Logs 自己的分段，看惯排行榜的人不需要重新建立直觉。
+ * 颜色本身就是评级，不再单独列一列文字。
  */
 export interface Band {
   readonly min: number;
-  readonly name: string;
   readonly hex: string;
   readonly ansi: number;
 }
 
 export const BANDS: readonly Band[] = [
-  { min: 100, name: "金", hex: "#E5CC80", ansi: 222 },
-  { min: 99, name: "粉", hex: "#E268A8", ansi: 176 },
-  { min: 95, name: "橙", hex: "#FF8000", ansi: 208 },
-  { min: 75, name: "紫", hex: "#A335EE", ansi: 135 },
-  { min: 50, name: "蓝", hex: "#0070FF", ansi: 33 },
-  { min: 25, name: "绿", hex: "#1EFF00", ansi: 46 },
-  { min: 0, name: "灰", hex: "#808080", ansi: 245 },
+  { min: 100, hex: "#E5CC80", ansi: 222 },
+  { min: 99, hex: "#E268A8", ansi: 176 },
+  { min: 95, hex: "#FF8000", ansi: 208 },
+  { min: 75, hex: "#A335EE", ansi: 135 },
+  { min: 50, hex: "#0070FF", ansi: 33 },
+  { min: 25, hex: "#1EFF00", ansi: 46 },
+  { min: 0, hex: "#808080", ansi: 245 },
 ];
 
 export function bandOf(percentile: number): Band {

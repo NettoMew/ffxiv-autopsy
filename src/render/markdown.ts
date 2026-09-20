@@ -1,7 +1,7 @@
 import { WINDOW_LABELS } from "../core/types.ts";
 import { quantile } from "../domain/baseline.ts";
 import type { Scoreboard } from "../domain/scoring.ts";
-import { bandOf, dateOf, duration, num, signedPercent } from "./format.ts";
+import { dateOf, duration, num, signedPercent } from "./format.ts";
 
 export function renderMarkdown(board: Scoreboard, host: string): string {
   const lines: string[] = [];
@@ -18,8 +18,8 @@ export function renderMarkdown(board: Scoreboard, host: string): string {
     "",
     "## 玩家总评",
     "",
-    "| 玩家 | 职业 | 分位 | 线性 | 评级 | 计分阶段 | 最强 | 最弱 |",
-    "| --- | --- | ---: | ---: | --- | ---: | --- | --- |",
+    "| 玩家 | 职业 | 分位 | 线性 | 计分阶段 | 最强 | 最弱 |",
+    "| --- | --- | ---: | ---: | ---: | --- | --- |",
   );
 
   for (const player of board.players) {
@@ -30,13 +30,14 @@ export function renderMarkdown(board: Scoreboard, host: string): string {
         player.label,
         player.percentile === null ? "—" : player.percentile.toFixed(1),
         player.linear === null ? "—" : player.linear.toFixed(1),
-        player.percentile === null ? "—" : bandOf(player.percentile).name,
-        String(rated.length),
+        `${rated.length} / ${player.phases.length}`,
         player.strongest?.phaseName ?? "—",
         player.weakest?.phaseName ?? "—",
       ]),
     );
   }
+
+  lines.push("", "计分阶段 = 计入总分的阶段 / 有数据的阶段。被团灭截断或官方样本不足的阶段不计分。");
 
   const phaseIndices = [
     ...new Set(board.players.flatMap((player) => player.phases.map((phase) => phase.phaseIndex))),

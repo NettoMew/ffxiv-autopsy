@@ -2,7 +2,7 @@ import { WINDOW_LABELS } from "../core/types.ts";
 import { heading, style, table } from "../core/terminal.ts";
 import { quantile } from "../domain/baseline.ts";
 import type { Scoreboard } from "../domain/scoring.ts";
-import { bandOf, dateOf, duration, num, paintPercentile, paintSigned } from "./format.ts";
+import { dateOf, duration, num, paintPercentile, paintSigned } from "./format.ts";
 
 export function renderConsole(board: Scoreboard, host: string): string {
   const lines: string[] = [];
@@ -35,26 +35,24 @@ export function renderConsole(board: Scoreboard, host: string): string {
         { header: "职业" },
         { header: "分位", align: "right" },
         { header: "线性", align: "right" },
-        { header: "评级" },
         { header: "计分阶段", align: "right" },
         { header: "最强" },
         { header: "最弱" },
       ],
       board.players.map((player) => {
         const rated = player.phases.filter((phase) => phase.percentile !== null);
-        const band = player.percentile === null ? null : bandOf(player.percentile);
         return [
           player.player,
           player.label,
           paintPercentile(player.percentile),
           player.linear === null ? style.gray("—") : player.linear.toFixed(1),
-          band ? band.name : style.gray("—"),
-          String(rated.length),
+          `${rated.length} / ${player.phases.length}`,
           player.strongest ? `${player.strongest.phaseName}` : style.gray("—"),
           player.weakest ? `${player.weakest.phaseName}` : style.gray("—"),
         ];
       }),
     ),
+    style.gray("计分阶段 = 计入总分的阶段 / 有数据的阶段。被团灭截断或官方样本不足的阶段不计分。"),
   );
 
   const phaseIndices = [...new Set(board.players.flatMap((player) => player.phases.map((phase) => phase.phaseIndex)))].sort(
