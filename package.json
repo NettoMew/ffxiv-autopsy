@@ -1,0 +1,16 @@
+{
+  "name": "fflogs-phase-score",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "依据 FF Logs 官方阶段统计，对战斗报告中的每名玩家逐阶段评分",
+  "engines": {
+    "node": ">=23.6"
+  },
+  "scripts": {
+    "score": "node src/main.ts score",
+    "baseline": "node src/main.ts baseline",
+    "test": "node --test src/",
+    "typecheck": "tsc --noEmit"
+  }
+}
