@@ -1,6 +1,6 @@
 import { quantile } from "../domain/baseline.ts";
 import { buildInsights, wipePhases, type Severity } from "../domain/insights.ts";
-import type { PhaseScore, PlayerScore, Scoreboard } from "../domain/scoring.ts";
+import { AGGREGATE_LABELS, type PhaseScore, type PlayerScore, type Scoreboard } from "../domain/scoring.ts";
 import { bandOf, dateOf, duration, num, signedPercent } from "./format.ts";
 
 /**
@@ -178,7 +178,7 @@ ${origin}
 ${link} 按 ${escape(board.metricLabel)} 算
       · 比官方最近 ${escape(board.baseline.windowLabel)}
       · 分区 ${board.baseline.partition}
-      · 一个 P 打多把时取${board.aggregate === "best" ? "最好的一把" : "中位数"}
+      · 一个 P 打多把时${escape(AGGREGATE_LABELS[board.aggregate])}
     </p>
   </header>`;
 }

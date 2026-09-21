@@ -31,7 +31,7 @@ const USAGE = `
   --metric <rdps|adps|ndps|cdps|hps>  评分口径，默认 rdps
   --fight <id>                        只评某一把，默认全部
   --phase <n>                         只评某个 P，默认全部
-  --aggregate <median|best>           同一个 P 打了多把时怎么取值，默认 median
+  --aggregate <trimmed|median|best>   同一个 P 打了多把时怎么取值，默认 trimmed
   --window <天数>                     比对官方最近多少天的数据，默认随副本页面
   --format <console,html,markdown,csv,image>  输出形式，可用逗号叠加，默认 console
   --out <目录>                        文件输出目录，默认 out
@@ -253,8 +253,10 @@ function parseOptions(argv: readonly string[]): Options {
   const metric = valueOf(argv, "--metric") ?? "rdps";
   if (!isMetric(metric)) fail(`不认识的口径：${metric}`, "可选 rdps、adps、ndps、cdps、hps。");
 
-  const aggregate = valueOf(argv, "--aggregate") ?? "median";
-  if (aggregate !== "median" && aggregate !== "best") fail(`不认识的取值方式：${aggregate}`);
+  const aggregate = valueOf(argv, "--aggregate") ?? "trimmed";
+  if (aggregate !== "trimmed" && aggregate !== "median" && aggregate !== "best") {
+    fail(`不认识的取值方式：${aggregate}`, "可选 trimmed（去掉最好最差取平均）、median、best。");
+  }
 
   // 各副本提供的取样窗口不一样，能不能用要等读到页面才知道，这里只做基本校验。
   const window = numberOf(argv, "--window") ?? null;

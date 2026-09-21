@@ -1,6 +1,6 @@
 import { quantile } from "../domain/baseline.ts";
 import { buildInsights, type Severity } from "../domain/insights.ts";
-import type { Scoreboard } from "../domain/scoring.ts";
+import { AGGREGATE_LABELS, type Scoreboard } from "../domain/scoring.ts";
 import { dateOf, duration, num, signedPercent } from "./format.ts";
 
 const MARKS: Readonly<Record<Severity, string>> = {
@@ -28,7 +28,7 @@ export function renderMarkdown(board: Scoreboard, host: string): string {
         ]),
     `- 时间：${dateOf(board.report.start)}`,
     `- 口径：${board.metricLabel}，比的是官方最近 ${board.baseline.windowLabel}、分区 ${board.baseline.partition} 的数据`,
-    `- 同一个 P 打了多把时，取${board.aggregate === "best" ? "最好的一把" : "中位数"}`,
+    `- 同一个 P 打了多把时，${AGGREGATE_LABELS[board.aggregate]}`,
     "",
     "## 玩家总评",
     "",

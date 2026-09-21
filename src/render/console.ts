@@ -1,5 +1,6 @@
 import { displayWidth, heading, padEnd, style, table } from "../core/terminal.ts";
 import { quantile } from "../domain/baseline.ts";
+import { AGGREGATE_LABELS } from "../domain/scoring.ts";
 import { buildInsights, type Severity } from "../domain/insights.ts";
 import type { Scoreboard } from "../domain/scoring.ts";
 import { dateOf, duration, num, paintPercentile, paintSigned } from "./format.ts";
@@ -34,7 +35,7 @@ export function renderConsole(board: Scoreboard, host: string): string {
         `按 ${board.metricLabel} 算`,
         `比官方最近 ${board.baseline.windowLabel}`,
         `分区 ${board.baseline.partition}`,
-        `一个 P 打多把时取${board.aggregate === "best" ? "最好的一把" : "中位数"}`,
+        `一个 P 打多把时${AGGREGATE_LABELS[board.aggregate]}`,
       ].join("   "),
     ),
   );

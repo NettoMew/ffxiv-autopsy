@@ -3,8 +3,14 @@ import type { FfLogsApi } from "../net/fflogs.ts";
 import { curveFor, linearOf, percentileOf, quantile } from "./baseline.ts";
 import { perSecond } from "./metrics.ts";
 
-/** 同一名玩家在同一阶段有多次 pull 时，如何取一个代表值。 */
-export type Aggregate = "median" | "best";
+/** 同一个人在同一个 P 打了多把时，怎么取一个代表值。 */
+export type Aggregate = "trimmed" | "median" | "best";
+
+export const AGGREGATE_LABELS: Readonly<Record<Aggregate, string>> = {
+  trimmed: "去掉最好最差后取平均",
+  median: "中位数",
+  best: "最好的一把",
+};
 
 /**
  * 官方样本少于这个数就不给分。
@@ -169,7 +175,7 @@ export function buildScoreboard(
 
     for (const [phaseIndex, bucket] of [...phases].sort((a, b) => a[0] - b[0])) {
       const values = bucket.map((sample) => sample.value).sort((a, b) => a - b);
-      const representative = options.aggregate === "best" ? (values[values.length - 1] ?? 0) : median(values);
+      const representative = aggregate(values, options.aggregate);
       const curve = curveFor(baseline, phaseIndex, job);
       const reliable = curve !== null && curve.sampleSize >= MIN_SAMPLE;
       const first = bucket[0];
@@ -250,6 +256,19 @@ function withDisplayNames(players: readonly PlayerScore[], anonymous: boolean): 
     seen.set(player.label, ordinal);
     return { ...player, display: `${player.label} ${ordinal}` };
   });
+}
+
+/**
+ * 把一个 P 的多把成绩收成一个数。
+ *
+ * 默认去掉最好和最差再取平均：既挡得住单次翻车，又不像中位数那样把其余各把的
+ * 高低整个丢掉。七把里有三把明显更好时，中位数会落在低的那一簇里，看不出上限。
+ * 不足三把时没得去头尾，退回中位数（两把就是两把的平均）。
+ */
+function aggregate(sorted: readonly number[], how: Aggregate): number {
+  if (how === "best") return sorted[sorted.length - 1] ?? 0;
+  if (how === "median" || sorted.length <= 2) return median(sorted);
+  return mean(sorted.slice(1, -1));
 }
 
 function median(sorted: readonly number[]): number {

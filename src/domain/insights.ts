@@ -190,7 +190,7 @@ function playerInsights(player: PlayerScore): Insight[] {
       subject: player.display,
       text:
         `${volatile.phaseName} 打了 ${volatile.pulls} 把，最好 ${round(volatile.best)}、最差 ${round(volatile.worst)}，` +
-        `差了 ${percent(swing)}，中间有几把明显失手。总分取的是中位数，个别翻车不影响分数。`,
+        `差了 ${percent(swing)}，中间有几把明显失手。计分时最差那把已经排掉了，个别翻车不影响分数。`,
     });
   }
 
